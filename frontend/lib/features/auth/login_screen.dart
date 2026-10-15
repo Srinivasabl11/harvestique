@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/errors/app_failure.dart';
 import '../../core/network/api_client.dart';
+import '../../core/widgets/brand.dart';
 import '../../core/widgets/common.dart';
 import 'auth_controller.dart';
 import 'change_password_screen.dart';
@@ -76,7 +77,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(Icons.agriculture, size: 64),
+                  const BrandLogo(size: 96),
                   const SizedBox(height: 8),
                   Text('Harvestique', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
                   const SizedBox(height: 24),

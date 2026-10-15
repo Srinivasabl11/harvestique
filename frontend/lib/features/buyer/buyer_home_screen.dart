@@ -5,7 +5,7 @@ import '../../core/network/api_client.dart';
 import '../../core/util/format.dart';
 import '../../core/util/json.dart';
 import '../../core/widgets/common.dart';
-import '../home/quotes/karnataka_quote_hero.dart';
+import '../home/quotes/quote_hero.dart';
 import 'search_screen.dart';
 
 /// Future supply on offer per crop: sums of farmers' pessimistic (p10) predictions on opted-in lots.
@@ -17,12 +17,12 @@ class BuyerHomeScreen extends ConsumerWidget {
     final api = ref.watch(apiProvider);
     return Reloadable<List<Map<String, dynamic>>>(
       // the hero needs no server data: it also shows while loading and when the server is unreachable
-      header: const KarnatakaQuoteHero(),
+      header: const HarvestiqueQuoteHero(),
       load: () => api.cached('supply', () => api.getList('/market/supply'), asObjects),
       builder: (context, rows, reload) => ListView(
         padding: const EdgeInsets.only(bottom: 32),
         children: [
-          const KarnatakaQuoteHero(),
+          const HarvestiqueQuoteHero(),
           Padding(
             padding: const EdgeInsets.all(12),
             child: FilledButton.icon(

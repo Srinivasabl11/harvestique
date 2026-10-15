@@ -9,7 +9,7 @@ import 'package:harvestique/core/storage/offline_cache.dart';
 import 'package:harvestique/core/storage/token_store.dart';
 import 'package:harvestique/features/buyer/buyer_home_screen.dart';
 import 'package:harvestique/features/home/farmer_home_screen.dart';
-import 'package:harvestique/features/home/quotes/karnataka_quote_hero.dart';
+import 'package:harvestique/features/home/quotes/quote_hero.dart';
 import 'package:harvestique/features/home/quotes/kannada_quotes.dart';
 import 'package:harvestique/features/home/quotes/quote_rotation.dart';
 import 'package:harvestique/features/home/weather_card.dart';
@@ -78,10 +78,10 @@ void main() {
   }
 
   void expectHero({required String quote, required String counter}) {
-    expect(find.byType(KarnatakaQuoteHero), findsOneWidget);
+    expect(find.byType(HarvestiqueQuoteHero), findsOneWidget);
     expect(find.text('HARVESTIQUE'), findsOneWidget);
     expect(
-      find.byWidgetPredicate((w) => w is Image && w.image == const AssetImage(KarnatakaQuoteHero.asset)),
+      find.byWidgetPredicate((w) => w is Image && w.image == const AssetImage(HarvestiqueQuoteHero.asset)),
       findsOneWidget,
     );
     expect(find.text(quote), findsOneWidget);
@@ -102,8 +102,8 @@ void main() {
       expectHero(quote: quote1, counter: '1 / 100');
       expect(find.textContaining('Namaskara'), findsOneWidget);
       expect(find.byType(FarmWeatherCard), findsOneWidget);
-      expectAbove(t, find.byType(KarnatakaQuoteHero), find.byType(FarmWeatherCard));
-      expectAbove(t, find.byType(KarnatakaQuoteHero), find.textContaining('Namaskara'));
+      expectAbove(t, find.byType(HarvestiqueQuoteHero), find.byType(FarmWeatherCard));
+      expectAbove(t, find.byType(HarvestiqueQuoteHero), find.textContaining('Namaskara'));
       await finish(t, c);
     });
 
@@ -111,7 +111,7 @@ void main() {
       final c = await pumpScreen(t, const FarmerHomeScreen(), _Server.unreachable);
       expect(find.text('Try again'), findsOneWidget); // existing error panel is kept
       expectHero(quote: quote1, counter: '1 / 100');
-      expectAbove(t, find.byType(KarnatakaQuoteHero), find.text('Try again'));
+      expectAbove(t, find.byType(HarvestiqueQuoteHero), find.text('Try again'));
       await finish(t, c);
     });
 
@@ -129,7 +129,7 @@ void main() {
       expectHero(quote: quote1, counter: '1 / 100');
       expect(find.text('Search future harvests'), findsOneWidget);
       expect(find.text('No future supply is on offer right now.'), findsOneWidget);
-      expectAbove(t, find.byType(KarnatakaQuoteHero), find.text('Search future harvests'));
+      expectAbove(t, find.byType(HarvestiqueQuoteHero), find.text('Search future harvests'));
       await finish(t, c);
     });
 
@@ -172,7 +172,7 @@ void main() {
     );
     await t.pump();
     await t.pump(const Duration(milliseconds: 700));
-    expect(find.byType(KarnatakaQuoteHero), findsNWidgets(2));
+    expect(find.byType(HarvestiqueQuoteHero), findsNWidgets(2));
     expect(find.text(quote1), findsNWidgets(2));
 
     await t.pump(QuoteTicker.interval - const Duration(milliseconds: 700) - const Duration(milliseconds: 1));

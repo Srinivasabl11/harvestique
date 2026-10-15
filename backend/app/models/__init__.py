@@ -16,6 +16,7 @@ from app.models.intelligence import (
     InventoryReservation,
     MarketPrice,
     PredictionFeedback,
+    ProduceGrading,
     WeatherDaily,
     YieldPrediction,
 )
@@ -71,6 +72,7 @@ __all__ = [
     "Notification",
     "PredictionFeedback",
     "ProduceBatch",
+    "ProduceGrading",
     "QualityCheck",
     "ReallocationEvent",
     "RefreshToken",

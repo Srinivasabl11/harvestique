@@ -157,8 +157,8 @@ T: dict[str, dict[str, str]] = {
         "kn": "ಸಾಮಾನ್ಯ ಕೃಷಿ ಪ್ರಶ್ನೆಗಳಿಗೆ ಕನ್ನಡದಲ್ಲಿ ವಿಶ್ವಾಸಾರ್ಹ ಉತ್ತರ ನೀಡಲು ನನಗೆ ಇನ್ನೂ ಸಾಧ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ರೈತ ಸಂಪರ್ಕ ಕೇಂದ್ರ ಅಥವಾ ಕೃಷಿ ಅಧಿಕಾರಿಯನ್ನು ಕೇಳಿ. ನಿಮ್ಮ ಹವಾಮಾನ, ಖರ್ಚು, ಕೊಯ್ಲು ಅಂದಾಜು, ಆದಾಯ ಯೋಜನೆ ಮತ್ತು ಜ್ಞಾಪನೆಗಳ ಬಗ್ಗೆ ನಾನು ಹೇಳಬಲ್ಲೆ.",
     },
     "crop_health": {
-        "en": "To check crop health, take a clear photo of the affected leaves and use 'Crop health' on the crop. The result is a probability-based suggestion, not a diagnosis; contact an agriculture officer to confirm.",
-        "kn": "ಬೆಳೆಯ ಆರೋಗ್ಯ ಪರಿಶೀಲಿಸಲು ಎಲೆಯ ಸ್ಪಷ್ಟ ಫೋಟೋ ತೆಗೆದು 'Crop health' ಬಳಸಿ. ಫಲಿತಾಂಶ ಸಂಭಾವ್ಯತೆಯ ಸಲಹೆ ಮಾತ್ರ, ರೋಗನಿರ್ಣಯ ಅಲ್ಲ; ಖಚಿತಪಡಿಸಲು ಕೃಷಿ ಅಧಿಕಾರಿಯನ್ನು ಸಂಪರ್ಕಿಸಿ.",
+        "en": "To check crop health, take a clear photo of the affected leaves and use 'Crop health' on the crop. The result says Healthy or Needs attention with the signs it saw and what to check next, or asks for a clearer photo. It is a suggestion, not a diagnosis; contact an agriculture officer to confirm.",
+        "kn": "ಬೆಳೆಯ ಆರೋಗ್ಯ ಪರಿಶೀಲಿಸಲು ಎಲೆಯ ಸ್ಪಷ್ಟ ಫೋಟೋ ತೆಗೆದು 'Crop health' ಬಳಸಿ. ಫಲಿತಾಂಶ 'ಆರೋಗ್ಯಕರ' ಅಥವಾ 'ಗಮನ ಬೇಕು' ಎಂದು ಕಂಡ ಲಕ್ಷಣಗಳು ಮತ್ತು ಮುಂದೆ ಏನು ನೋಡಬೇಕು ಎಂಬುದರೊಂದಿಗೆ ಹೇಳುತ್ತದೆ, ಅಥವಾ ಇನ್ನಷ್ಟು ಸ್ಪಷ್ಟ ಫೋಟೋ ಕೇಳುತ್ತದೆ. ಇದು ಸಲಹೆ ಮಾತ್ರ, ರೋಗನಿರ್ಣಯ ಅಲ್ಲ; ಖಚಿತಪಡಿಸಲು ಕೃಷಿ ಅಧಿಕಾರಿಯನ್ನು ಸಂಪರ್ಕಿಸಿ.",
     },
     "allocation_refused": {
         "en": "I can't decide or change allocation quantities. The Harvest Pool engine sets them from the predicted (p10) supply, and farmers accept or decline requests themselves.",

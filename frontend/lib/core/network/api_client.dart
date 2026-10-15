@@ -36,18 +36,53 @@ AppFailure mapDioError(Object error) {
       }
       return AppFailure(e.str('code', 'error'), message);
     }
-    switch (error.type) {
-      case DioExceptionType.connectionError:
-      case DioExceptionType.connectionTimeout:
-      case DioExceptionType.receiveTimeout:
-      case DioExceptionType.sendTimeout:
-        return const AppFailure('network',
-            'Cannot reach the Harvestique server. Check your connection.',);
-      default:
-        break;
-    }
+    final network = networkFailure(error.type, error.error, error.response?.statusCode);
+    if (network != null) return network;
   }
   return AppFailure('unknown', error.toString());
+}
+
+/// The server host the app was built for, shown in connection errors: a wrong build (an emulator or Wi-Fi address
+/// instead of the hosted server) is then visible at once.
+String serverHost([String baseUrl = AppConfig.apiBaseUrl]) {
+  final host = Uri.tryParse(baseUrl)?.host ?? '';
+  return host.isEmpty ? baseUrl : host;
+}
+
+/// Why the server could not be reached, in words that point at the real cause. All of them keep the code 'network'
+/// (or 'server_unavailable'), so screens fall back to the last saved copy of their data.
+AppFailure? networkFailure(DioExceptionType type, Object? cause, int? status, {String? host}) {
+  final h = host ?? serverHost();
+  final text = '$cause';
+  switch (type) {
+    case DioExceptionType.connectionError:
+      if (text.contains('Failed host lookup') || text.contains('Network is unreachable') || text.contains('No address')) {
+        return AppFailure('network', 'No internet connection, or the server name $h cannot be found. Check mobile data or Wi-Fi.');
+      }
+      if (text.contains('Handshake') || text.contains('CERTIFICATE') || text.contains('Tls')) {
+        return AppFailure('network', "A secure connection to $h failed. Check that the phone's date and time are correct.");
+      }
+      if (text.contains('Connection refused')) {
+        return AppFailure('network', 'The server $h refused the connection: it is not running at this address.');
+      }
+      return AppFailure('network', 'Cannot reach the Harvestique server ($h). Check your connection.');
+    case DioExceptionType.badCertificate:
+      return AppFailure('network', "A secure connection to $h failed. Check that the phone's date and time are correct.");
+    case DioExceptionType.connectionTimeout:
+      return AppFailure('network', 'The server ($h) did not answer in time. If it was idle it may be starting up, which '
+          'can take about a minute: try again shortly.');
+    case DioExceptionType.receiveTimeout:
+    case DioExceptionType.sendTimeout:
+      return AppFailure('network', 'The server ($h) is taking too long to answer. It may be waking up: try again in a minute.');
+    case DioExceptionType.badResponse:
+      // a hosting proxy answers 502/503/504 itself (no Harvestique error body) while the server starts or deploys
+      if (status == 502 || status == 503 || status == 504) {
+        return AppFailure('server_unavailable', 'The Harvestique server ($h) is starting up or being updated. Try again in a minute.');
+      }
+      return null;
+    default:
+      return null;
+  }
 }
 
 /// A read result: live data, or the last saved copy when offline (`cachedAt` is then set).
@@ -207,6 +242,11 @@ class ApiClient {
   Future<Map<String, dynamic>> patch(
       String path, Map<String, dynamic> body,) async {
     final data = await _send(() => _dio.patch<dynamic>(path, data: body));
+    return data is Map<String, dynamic> ? data : <String, dynamic>{};
+  }
+
+  Future<Map<String, dynamic>> put(String path, Map<String, dynamic> body) async {
+    final data = await _send(() => _dio.put<dynamic>(path, data: body));
     return data is Map<String, dynamic> ? data : <String, dynamic>{};
   }
 

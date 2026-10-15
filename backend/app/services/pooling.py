@@ -16,6 +16,7 @@ from collections.abc import Callable, Sequence
 from decimal import Decimal
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.clock import Clock
@@ -24,6 +25,7 @@ from app.core.enums import (
     DemandStatus,
     LotStatus,
     PoolStatus,
+    QualityGrade,
     ReallocationOutcome,
     ReservationStatus,
     UserRole,
@@ -530,7 +532,15 @@ class PoolService:
         if lot is None or lot.owner_id != owner_id:
             raise NotFoundError("Inventory lot not found")
         before = (lot.pool_eligible, lot.expected_grade)
-        for k, v in payload.model_dump(exclude_unset=True).items():
+        changes = payload.model_dump(exclude_unset=True)
+        graded = self._graded(lot)
+        if graded is not None and changes.get("expected_grade") not in (None, graded):
+            raise ConflictError(
+                f"This harvest was graded {graded.value} from its quality checks. Change the grade on the crop's "
+                "'Produce quality grade' screen instead.",
+                code="grade_set_by_grading",
+            )
+        for k, v in changes.items():
             if v is None:
                 raise DomainValidationError(f"{k} cannot be null", code="null_not_allowed", details={"field": k})
             setattr(lot, k, v)
@@ -542,6 +552,17 @@ class PoolService:
         return self._inventory.lot_out(lot)
 
     # =============================================================== internals
+
+    def _graded(self, lot: InventoryLot) -> QualityGrade | None:
+        """The confirmed quality grade of the lot's recorded harvest, if the farmer graded it."""
+        from app.models.intelligence import HarvestActual, ProduceGrading
+
+        stmt = (
+            select(ProduceGrading.grade)
+            .join(HarvestActual, HarvestActual.id == ProduceGrading.harvest_actual_id)
+            .where(HarvestActual.crop_cycle_id == lot.crop_cycle_id, ProduceGrading.grade.is_not(None))
+        )
+        return self._session.scalar(stmt)
 
     def _demand_out(self, demand: BuyerDemand) -> DemandOut:
         """The demand with one buyer-facing stage and its quantities. Pooled: reserved and still uncovered kg.
@@ -617,18 +638,22 @@ class PoolService:
     def _supplies(self, crop_id: uuid.UUID, *, lock: bool) -> list[tuple[InventoryLot, Supply]]:
         out: list[tuple[InventoryLot, Supply]] = []
         reliability: dict[uuid.UUID, Decimal] = {}
+        confirmed = self._repo.graded_cycle_ids(crop_id)
         for lot, cycle, farm in self._repo.lots_for_crop(crop_id, lock=lock):
             self._inventory.sync_lot(cycle, lot.owner_id)
             pred = self._repo.latest_prediction(cycle.id)
             if lot.owner_id not in reliability:
                 hits, n = self._repo.reliability(lot.owner_id)
                 reliability[lot.owner_id] = Decimal(hits + 1) / Decimal(n + 2)  # Laplace: no history -> 0.5
-            out.append((lot, self._supply(lot, cycle, farm, pred, reliability[lot.owner_id])))
+            graded = cycle.id in confirmed
+            out.append((lot, self._supply(lot, cycle, farm, pred, reliability[lot.owner_id], graded)))
         self._session.flush()
         return out
 
     @staticmethod
-    def _supply(lot: InventoryLot, cycle: CropCycle, farm: Farm, pred: Any, reliability: Decimal) -> Supply:
+    def _supply(
+        lot: InventoryLot, cycle: CropCycle, farm: Farm, pred: Any, reliability: Decimal, graded: bool = False
+    ) -> Supply:
         start = pred.harvest_start_p10 if pred else cycle.sowing_date
         end = pred.harvest_end_p90 if pred else cycle.sowing_date
         return Supply(
@@ -647,6 +672,7 @@ class PoolService:
             longitude=farm.longitude,
             opted_in=lot.pool_eligible,
             lot_open=pred is not None and lot.status in (LotStatus.OPEN, LotStatus.HARVESTED),
+            grade_confirmed=graded,
         )
 
     def _plan(self, pool: HarvestPool, demand: BuyerDemand, need: Decimal) -> tuple[Plan, list[Match]]:
@@ -847,4 +873,6 @@ class PoolService:
             risk=s.risk,
             reliability=s.reliability.quantize(Decimal("0.001")),
             distance_km=m.distance_km,
+            grade=s.grade,
+            grade_basis="farmer_graded" if s.grade_confirmed else "farmer_expected",
         )

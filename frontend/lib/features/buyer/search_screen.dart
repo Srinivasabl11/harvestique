@@ -196,8 +196,10 @@ class MatchTile extends StatelessWidget {
           color: m.boolVal('eligible') ? Colors.green : Colors.grey,
         ),
         title: Text('Farm ${m.str('farm_ref')} · ${kg(m.numVal('available_kg'))}'),
-        subtitle:
-            Text('Score ${number(m.numVal('score'))} · harvest ${day(m.str('window_start'))} – ${day(m.str('window_end'))}'),
+        subtitle: Text(
+          'Score ${number(m.numVal('score'))} · harvest ${day(m.str('window_start'))} – ${day(m.str('window_end'))}'
+          '${m.strOrNull('grade') == null ? '' : '\n${gradeLine(m)}'}',
+        ),
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -222,3 +224,9 @@ class MatchTile extends StatelessWidget {
     );
   }
 }
+
+/// The lot's grade and how the farmer arrived at it. Both are the farmer's own (indicative) grades; the hub's quality
+/// check on delivery decides acceptance.
+String gradeLine(Map<String, dynamic> m) => m.str('grade_basis') == 'farmer_graded'
+    ? 'Grade ${m.str('grade')} · graded by the farmer after harvest'
+    : "Grade ${m.str('grade')} · farmer's expectation (not graded yet)";

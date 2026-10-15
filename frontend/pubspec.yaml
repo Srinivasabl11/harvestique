@@ -27,4 +27,5 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/images/karnataka_hero.png
+    - assets/images/seedling_hero.jpg # brand photo: Home hero (frontend/branding/generate_brand_images.py)
+    - assets/images/seedling_logo.png # brand photo, round: sign-in screen

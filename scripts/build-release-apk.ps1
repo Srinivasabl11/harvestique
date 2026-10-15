@@ -23,7 +23,10 @@ if (-not (Test-Path (Join-Path $frontend "android\key.properties"))) {
 
 Write-Host "Checking $url/health/ready (a sleeping free server can take about a minute to wake) ..."
 $ready = Invoke-RestMethod -Uri "$url/health/ready" -TimeoutSec 120
-if ($ready.status -ne "ready") { throw "The server is not ready: $($ready | ConvertTo-Json -Compress)" }
+# 'degraded' = database fine, an optional AI service (assistant model or photo model) is down: the app works and says
+# so on the AI screens, so the APK can still be built.
+if ($ready.status -notin @("ready", "degraded")) { throw "The server is not ready: $($ready | ConvertTo-Json -Compress)" }
+if ($ready.status -eq "degraded") { Write-Warning "Server is up but an AI service is unavailable: $($ready.components | ConvertTo-Json -Compress)" }
 
 Push-Location $frontend
 try {

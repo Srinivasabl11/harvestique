@@ -23,7 +23,7 @@ from app.core.enums import CropHealthClass
 from app.domain.crop_profiles import is_crop_guess
 from app.domain.vision import HealthAssessment
 
-REPORT_VERSION = 1
+REPORT_VERSION = 2  # 2: farmer-facing decision (domain.crop_health_decision); no category-bar text
 SIGN_WEIGHT: dict[str, float] = {
     "spots": 1.0,  # unspecified spots or markings: the weakest sign (often veins, glare or dust on healthy leaves)
     "yellowing": 1.5,
@@ -217,26 +217,16 @@ T: dict[str, dict[str, str]] = {
         "no_explanation": "No sign that needs explaining was seen.",
         "produce_colour": "Colour change on {part} is often normal ripening or the variety's own colour, which one "
         "photo cannot tell apart from a problem.",
-        "confidence": "How sure the AI is about the category: {level}. This is the model's own rating, lowered by our "
-        "checks; it is not a measured accuracy.",
-        "shares": "The category bars turn that rating into fixed shares (65 %, 55 % or 42 % for the chosen category, "
-        "most of the rest for 'Unknown'), capped at 70 %. They are not measured probabilities.",
         "limit_photo": "Only what is visible in this one photo was checked, not the underside of the leaves, the "
         "roots, the stems or the rest of the field.",
         "limit_healthy": "No visible sign does not prove the plant is healthy: early infections, root problems and "
         "some pests do not show yet.",
-        "limit_problem": "In our tests this AI often reported problems on healthy leaves, so check a 'possible' "
-        "problem in the field before acting.",
+        "limit_problem": "In our tests this AI often reported problems on healthy leaves, so look at the plant "
+        "in the field before acting on a 'Needs attention' result.",
         "limit_crop": "The photo check for {crop} has not been validated on labelled photos.",
         "limit_crop_not_reliable": "For {crop}, this check was measured as NOT reliable: in our tests it called most "
         "healthy leaves diseased.",
-        "next_problem": "Look at nearby plants and at the underside of the affected leaves. If the signs spread, show "
-        "a sample to an agriculture officer or the Raitha Samparka Kendra before spraying anything.",
-        "next_healthy": "Keep checking every few days, and photograph any leaf that changes colour or gets spots.",
-        "next_unclear": "Take a sharp close-up of one affected leaf in daylight, so that it fills the photo.",
         "next_leaves": "For leaf health, take a close photo of the leaves.",
-        "next_crop": "Check that the crop you chose is the one in the photo.",
-        "next_specialist": "Ask your Krishi Vigyan Kendra or a specialist.",
         "score_method": "Visual condition score: starts at 10 and loses points for each visible sign, more for "
         "serious or widespread signs. It rates only what this photo shows. It is not the chance of a disease and not "
         "how sure the AI is.",
@@ -279,24 +269,14 @@ T: dict[str, dict[str, str]] = {
         "no_explanation": "ವಿವರಿಸಬೇಕಾದ ಯಾವುದೇ ಲಕ್ಷಣ ಕಾಣಲಿಲ್ಲ.",
         "produce_colour": "{part} ಮೇಲಿನ ಬಣ್ಣ ಬದಲಾವಣೆ ಹೆಚ್ಚಾಗಿ ಸಹಜವಾಗಿ ಹಣ್ಣಾಗುವಿಕೆ ಅಥವಾ ತಳಿಯ ಸ್ವಂತ ಬಣ್ಣ; ಒಂದು ಫೋಟೋದಿಂದ "
         "ಅದನ್ನು ಸಮಸ್ಯೆಯಿಂದ ಬೇರ್ಪಡಿಸಲು ಆಗುವುದಿಲ್ಲ.",
-        "confidence": "ವರ್ಗದ ಬಗ್ಗೆ AI ಎಷ್ಟು ಖಚಿತ: {level}. ಇದು ಮಾದರಿಯ ಸ್ವಂತ ಅಂದಾಜು, ನಮ್ಮ ಪರಿಶೀಲನೆಗಳು ಇದನ್ನು "
-        "ಕಡಿಮೆ ಮಾಡಬಹುದು; ಇದು ಅಳೆದ ನಿಖರತೆ ಅಲ್ಲ.",
-        "shares": "ವರ್ಗದ ಪಟ್ಟಿಗಳು ಆ ಅಂದಾಜನ್ನು ನಿಗದಿತ ಪಾಲುಗಳಾಗಿ ಬದಲಾಯಿಸುತ್ತವೆ (ಆಯ್ದ ವರ್ಗಕ್ಕೆ 65 %, 55 % ಅಥವಾ 42 %, "
-        "ಉಳಿದದ್ದು ಹೆಚ್ಚಾಗಿ 'ಗೊತ್ತಿಲ್ಲ'ಕ್ಕೆ), ಗರಿಷ್ಠ 70 %. ಇವು ಅಳೆದ ಸಂಭವನೀಯತೆಗಳಲ್ಲ.",
         "limit_photo": "ಈ ಒಂದು ಫೋಟೋದಲ್ಲಿ ಕಾಣುವುದನ್ನು ಮಾತ್ರ ಪರಿಶೀಲಿಸಲಾಗಿದೆ; ಎಲೆಯ ಕೆಳಭಾಗ, ಬೇರು, ಕಾಂಡ ಮತ್ತು ಉಳಿದ ಹೊಲವನ್ನು ಪರಿಶೀಲಿಸಿಲ್ಲ.",
         "limit_healthy": "ಲಕ್ಷಣ ಕಾಣದಿದ್ದರೂ ಗಿಡ ಆರೋಗ್ಯವಾಗಿದೆ ಎಂದು ಖಚಿತವಲ್ಲ: ಆರಂಭಿಕ ಸೋಂಕು, ಬೇರಿನ ಸಮಸ್ಯೆ ಮತ್ತು ಕೆಲವು ಕೀಟಗಳು ಇನ್ನೂ ಕಾಣದಿರಬಹುದು.",
         "limit_problem": "ನಮ್ಮ ಪರೀಕ್ಷೆಗಳಲ್ಲಿ ಈ AI ಆರೋಗ್ಯಕರ ಎಲೆಗಳಲ್ಲೂ ಹಲವು ಬಾರಿ ಸಮಸ್ಯೆ ಎಂದು ಹೇಳಿದೆ; ಕ್ರಮ ಕೈಗೊಳ್ಳುವ "
-        "ಮೊದಲು 'ಸಂಭವನೀಯ' ಸಮಸ್ಯೆಯನ್ನು ಹೊಲದಲ್ಲಿ ಪರಿಶೀಲಿಸಿ.",
+        "ಮೊದಲು ಗಿಡವನ್ನು ಹೊಲದಲ್ಲಿ ನೀವೇ ಪರಿಶೀಲಿಸಿ.",
         "limit_crop": "{crop} ಗಾಗಿ ಫೋಟೋ ಪರಿಶೀಲನೆಯನ್ನು ಲೇಬಲ್ ಮಾಡಿದ ಫೋಟೋಗಳಲ್ಲಿ ದೃಢೀಕರಿಸಿಲ್ಲ.",
         "limit_crop_not_reliable": "{crop} ಗೆ ಈ ಪರಿಶೀಲನೆ ವಿಶ್ವಾಸಾರ್ಹವಲ್ಲ ಎಂದು ಅಳೆಯಲಾಗಿದೆ: ನಮ್ಮ ಪರೀಕ್ಷೆಯಲ್ಲಿ ಇದು ಹೆಚ್ಚಿನ "
         "ಆರೋಗ್ಯಕರ ಎಲೆಗಳನ್ನು ರೋಗಗ್ರಸ್ತ ಎಂದು ಹೇಳಿತು.",
-        "next_problem": "ಸುತ್ತಲಿನ ಗಿಡಗಳು ಮತ್ತು ಬಾಧಿತ ಎಲೆಗಳ ಕೆಳಭಾಗವನ್ನು ನೋಡಿ. ಲಕ್ಷಣಗಳು ಹರಡುತ್ತಿದ್ದರೆ, ಏನನ್ನಾದರೂ "
-        "ಸಿಂಪಡಿಸುವ ಮೊದಲು ಮಾದರಿಯನ್ನು ಕೃಷಿ ಅಧಿಕಾರಿ ಅಥವಾ ರೈತ ಸಂಪರ್ಕ ಕೇಂದ್ರಕ್ಕೆ ತೋರಿಸಿ.",
-        "next_healthy": "ಕೆಲವು ದಿನಗಳಿಗೊಮ್ಮೆ ಪರಿಶೀಲಿಸುತ್ತಿರಿ; ಬಣ್ಣ ಬದಲಾದ ಅಥವಾ ಕಲೆ ಬಂದ ಎಲೆಯ ಫೋಟೋ ತೆಗೆಯಿರಿ.",
-        "next_unclear": "ಹಗಲು ಬೆಳಕಿನಲ್ಲಿ, ಒಂದು ಬಾಧಿತ ಎಲೆ ಫೋಟೋವನ್ನು ತುಂಬುವಂತೆ ಸ್ಪಷ್ಟವಾದ ಹತ್ತಿರದ ಫೋಟೋ ತೆಗೆಯಿರಿ.",
         "next_leaves": "ಎಲೆಗಳ ಆರೋಗ್ಯಕ್ಕಾಗಿ ಎಲೆಗಳ ಹತ್ತಿರದ ಫೋಟೋ ತೆಗೆಯಿರಿ.",
-        "next_crop": "ನೀವು ಆಯ್ಕೆ ಮಾಡಿದ ಬೆಳೆಯೇ ಫೋಟೋದಲ್ಲಿದೆಯೇ ಎಂದು ಪರಿಶೀಲಿಸಿ.",
-        "next_specialist": "ನಿಮ್ಮ ಕೃಷಿ ವಿಜ್ಞಾನ ಕೇಂದ್ರ ಅಥವಾ ತಜ್ಞರನ್ನು ಕೇಳಿ.",
         "score_method": "ದೃಶ್ಯ ಸ್ಥಿತಿ ಅಂಕ: 10 ರಿಂದ ಆರಂಭವಾಗಿ, ಕಾಣುವ ಪ್ರತಿಯೊಂದು ಲಕ್ಷಣಕ್ಕೆ ಅಂಕ ಕಡಿಮೆಯಾಗುತ್ತದೆ; ತೀವ್ರ ಅಥವಾ "
         "ವ್ಯಾಪಕ ಲಕ್ಷಣಕ್ಕೆ ಹೆಚ್ಚು. ಇದು ಈ ಫೋಟೋದಲ್ಲಿ ಕಾಣುವುದನ್ನು ಮಾತ್ರ ಅಳೆಯುತ್ತದೆ. ಇದು ರೋಗದ ಸಾಧ್ಯತೆ ಅಲ್ಲ, AI ಎಷ್ಟು "
         "ಖಚಿತ ಎಂಬುದೂ ಅಲ್ಲ.",
@@ -427,33 +407,27 @@ def build_report(
         explanations.append(t["no_explanation"])
 
     confidence = str(f.get("ai_confidence") or "low")
-    limitations = [t["limit_photo"]]
-    if result.label is CropHealthClass.HEALTHY:
-        limitations.append(t["limit_healthy"])
-    elif result.label in PROBLEMS:
-        limitations.append(t["limit_problem"])
     crop = crop_name or f.get("expected_crop")
+    # the farmer-facing result; its next steps are the report's "What to do next", and the limits and the score
+    # follow it (a doubtful "healthy" that became "clearer photo needed" gets neither "limit_healthy" nor 10/10)
+    from app.domain.crop_health_decision import decide  # it imports the sign names from this module
+
+    decision = decide(result.label, f, flags, lang, part_name=part, crop_name=str(crop or ""))
+    status = decision["status"]
+    limitations = [t["limit_photo"]]
+    if status == "healthy":
+        limitations.append(t["limit_healthy"])
+    elif status == "needs_attention":
+        limitations.append(t["limit_problem"])
     if validation and crop and validation.get("verdict") != "reliable":
         key = "limit_crop_not_reliable" if validation.get("verdict") == "not_reliable" else "limit_crop"
         limitations.append(t[key].format(crop=crop))
-    if reason not in ("no_ai", "specialist", "not_a_plant") and "precheck" not in f:
-        limitations.append(t["confidence"].format(level=CONFIDENCE_NAME[lang].get(confidence, confidence)))
-        limitations.append(t["shares"])
-
-    nxt: list[str] = []
-    if reason == "specialist":
-        nxt.append(t["next_specialist"])
-    elif reason in ("photo", "not_a_plant", "unclear", "produce_colour", "no_ai"):
-        nxt.append(t["next_unclear"])
-    elif result.label is CropHealthClass.HEALTHY:
-        nxt.append(t["next_healthy"])
-    elif result.label in PROBLEMS:
-        nxt.append(t["next_problem"])
-    if "crop_mismatch" in flags:
-        nxt.append(t["next_crop"])
-    if "part_not_leaves" in flags:
+    nxt = list(decision["next_steps"])
+    if "part_not_leaves" in flags and status != "retake_photo":
         nxt.append(t["next_leaves"])
 
+    if reason is None and status not in ("healthy", "needs_attention"):
+        reason = "unclear"
     score = None if reason else condition_score(observations, f.get("healthy_tissue"))
     condition: dict[str, Any] = {"score": score, "out_of": 10, "method": t["score_method"]}
     if score is None:
@@ -467,6 +441,7 @@ def build_report(
         "language": lang,
         "condition": condition,
         "assessment_confidence": None if reason in ("no_ai", "specialist") else confidence,
+        "decision": decision,
         "sections": [
             {"id": "photo", "title": t["photo"], "items": photo},
             *([{"id": "identity", "title": t["identity"], "items": identity}] if identity else []),

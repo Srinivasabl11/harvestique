@@ -61,6 +61,18 @@ class PoolingRepository:
             stmt = stmt.with_for_update(of=InventoryLot)
         return [(lot, cycle, farm) for lot, cycle, farm in self.session.execute(stmt).all()]
 
+    def graded_cycle_ids(self, crop_id: uuid.UUID) -> set[uuid.UUID]:
+        """Crop cycles of this crop whose recorded harvest has a confirmed quality grade (produce_gradings)."""
+        from app.models.intelligence import HarvestActual, ProduceGrading
+
+        stmt = (
+            select(HarvestActual.crop_cycle_id)
+            .join(ProduceGrading, ProduceGrading.harvest_actual_id == HarvestActual.id)
+            .join(CropCycle, CropCycle.id == HarvestActual.crop_cycle_id)
+            .where(CropCycle.crop_id == crop_id, ProduceGrading.grade.is_not(None))
+        )
+        return set(self.session.scalars(stmt).all())
+
     def latest_prediction(self, cycle_id: uuid.UUID) -> YieldPrediction | None:
         stmt = (
             select(YieldPrediction)

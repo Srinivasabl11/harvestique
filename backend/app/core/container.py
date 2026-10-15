@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.core.clock import Clock, SystemClock
 from app.core.config import Settings
 from app.core.database import build_engine, build_session_factory, ping_database
+from app.core.ratelimit import HourlyLimit
 from app.core.security import PasswordHasher, TokenCodec
 from app.providers.llm.base import LLMProvider
 from app.providers.market.base import DisabledMarketPrices, MarketPriceProvider
@@ -28,11 +29,13 @@ from app.providers.registry import (
     build_market_price_provider,
     build_notification_channel,
     build_prediction_provider,
+    build_produce_grader,
     build_speech_provider,
     build_weather_provider,
 )
 from app.providers.speech.device import FakeSpeech, OnDeviceSpeech
 from app.providers.vision.base import ColourHeuristicClassifier, CropHealthClassifier
+from app.providers.vision.produce import DisabledProduceGrader, ProduceGrader
 from app.providers.weather.base import WeatherProvider
 
 
@@ -49,9 +52,17 @@ class Container:
     tokens: TokenCodec
     speech: OnDeviceSpeech | FakeSpeech = field(default_factory=OnDeviceSpeech)
     crop_health: CropHealthClassifier = field(default_factory=ColourHeuristicClassifier)
+    produce_grader: ProduceGrader = field(default_factory=DisabledProduceGrader)
     market_prices: MarketPriceProvider = field(default_factory=DisabledMarketPrices)
     clock: Clock = field(default_factory=SystemClock)
     db_ping: Callable[[], bool] | None = None
+    ai_photo_limit: HourlyLimit | None = None  # built from settings in __post_init__ when not given
+
+    def __post_init__(self) -> None:
+        if self.ai_photo_limit is None:
+            self.ai_photo_limit = HourlyLimit(
+                limit=self.settings.ai_photo_checks_per_hour, clock=self.clock, what="AI photo checks"
+            )
 
     def check_database(self) -> bool:
         return self.db_ping() if self.db_ping else ping_database(self.engine)
@@ -72,6 +83,7 @@ def build_container(settings: Settings) -> Container:
         predictor=build_prediction_provider(settings),
         speech=build_speech_provider(settings),
         crop_health=build_crop_health_classifier(settings),
+        produce_grader=build_produce_grader(settings),
         market_prices=build_market_price_provider(settings),
         passwords=PasswordHasher(
             time_cost=settings.password_hash_time_cost,

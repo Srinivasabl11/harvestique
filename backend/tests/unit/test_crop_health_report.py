@@ -156,7 +156,7 @@ def test_a_problem_leaf_lists_signs_possible_causes_and_what_to_check():
     assert rep["condition"]["score"] == 7 and rep["condition"]["band"] == "moderate"  # 10 - 2 - 1.5 = 6.5 -> 7
     assert rep["assessment_confidence"] == "medium"
     assert any("called" in x or "reported problems on healthy leaves" in x for x in section(rep, "limitations"))
-    assert "agriculture officer" in section(rep, "next")[0]
+    assert any("agriculture officer" in x for x in section(rep, "next"))
 
 
 @pytest.mark.parametrize(
@@ -205,7 +205,7 @@ def test_an_unrelated_object_says_so_and_guesses_nothing():
     _, rep = report(answer(shows_plant=False, description="A red tractor in a yard.", symptoms=[]))
     assert section(rep, "photo") == [T["en"]["not_a_plant"]]
     assert section(rep, "identity") is None  # no crop or part guess for a non-plant
-    assert "close-up of one affected leaf" in section(rep, "next")[0]
+    assert "sharp close-up" in section(rep, "next")[0]
 
 
 def test_dark_and_blurred_photos_get_no_score_and_no_model_call():

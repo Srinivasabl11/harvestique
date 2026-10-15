@@ -8,7 +8,7 @@ import '../../core/widgets/common.dart';
 import '../assistant/assistant_screen.dart';
 import '../auth/auth_controller.dart';
 import '../crop_health/crop_health_screen.dart';
-import 'quotes/karnataka_quote_hero.dart';
+import 'quotes/quote_hero.dart';
 import 'weather_card.dart';
 
 /// Today at a glance, built only from the farmer's own data (cached for offline use).
@@ -48,7 +48,7 @@ class FarmerHomeScreen extends ConsumerWidget {
     final name = ref.watch(authProvider).name;
     return Reloadable<Map<String, dynamic>>(
       // the hero needs no server data: it also shows while loading and when the server is unreachable
-      header: const KarnatakaQuoteHero(),
+      header: const HarvestiqueQuoteHero(),
       load: () =>
           api.cached('farmer_home', () => _load(api), (j) => j is Map<String, dynamic> ? j : <String, dynamic>{}),
       builder: (context, d, reload) {
@@ -59,7 +59,7 @@ class FarmerHomeScreen extends ConsumerWidget {
         return ListView(
           padding: const EdgeInsets.only(bottom: 96),
           children: [
-            const KarnatakaQuoteHero(),
+            const HarvestiqueQuoteHero(),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
               child: Text('Namaskara, ${name.split(' ').first}', style: Theme.of(context).textTheme.headlineSmall),

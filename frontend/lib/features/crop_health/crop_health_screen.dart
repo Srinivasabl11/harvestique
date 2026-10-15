@@ -4,12 +4,12 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/network/api_client.dart';
-import '../../core/util/format.dart';
 import '../../core/util/json.dart';
 import '../../core/widgets/common.dart';
 import '../auth/auth_controller.dart';
 
-/// Advisory crop-health check from a photo. Shows probabilities, never a diagnosis.
+/// Advisory crop-health check from a photo: Healthy, Needs attention, or a request for a clearer photo. Never a
+/// diagnosis.
 class CropHealthScreen extends ConsumerStatefulWidget {
   const CropHealthScreen({super.key, this.cycleId});
 
@@ -59,7 +59,8 @@ class _CropHealthScreenState extends ConsumerState<CropHealthScreen> {
         padding: const EdgeInsets.all(12),
         children: [
           const Text(
-            'Take a clear, close photo of the affected leaves in daylight. The result is a suggestion, not a diagnosis.',
+            'Take a clear, close photo of the leaves in daylight. You get Healthy or Needs attention with what to check '
+            'next, or a request for a clearer photo. It is a suggestion, not a diagnosis.',
           ),
           const SizedBox(height: 12),
           Row(
@@ -102,40 +103,24 @@ class _CropHealthScreenState extends ConsumerState<CropHealthScreen> {
   }
 }
 
-/// Card title: no health label for a colour-only check, "Unclear" when nothing could be judged, and "Uncertain"
-/// when the AI saw signs but with low confidence (e.g. a far-away or poor photo).
-String cropHealthTitle(Map<String, dynamic> r) {
-  final features = r.obj('features');
-  if (features['mode'] == 'measurements_only') return 'Colour check (no health label)';
-  final name = label(r.str('label'));
-  if (r.str('label') == 'unknown') return 'Unclear from this photo';
-  if (features['ai_confidence'] == 'low') return 'Uncertain: $name';
-  return 'Most likely: $name';
+/// The farmer-facing decision sent by the server: healthy, needs_attention, retake_photo (no health claim, a clearer
+/// photo is needed) or unavailable (the AI check could not run). The model's internal categories are never shown.
+Map<String, dynamic>? cropHealthDecision(Map<String, dynamic> r) {
+  final top = r.objOrNull('decision');
+  if (top != null && top.str('status').isNotEmpty) return top;
+  final nested = r.obj('features').objOrNull('analysis')?.objOrNull('decision');
+  return nested != null && nested.str('status').isNotEmpty ? nested : null;
 }
 
-/// Whole percentages that add up to exactly 100 (largest-remainder rounding). Rounding each bar on its own showed
-/// 65 + 21 + 5 + 5 + 5 = 101 % for some results.
-Map<String, int> wholePercents(Map<String, dynamic> values) {
-  final exact = <String, double>{
-    for (final e in values.entries) e.key: (((e.value as num?) ?? 0).toDouble()).clamp(0, double.infinity).toDouble(),
-  };
-  final total = exact.values.fold<double>(0, (a, b) => a + b);
-  if (total <= 0) return {for (final k in exact.keys) k: 0};
-  final scaled = {for (final e in exact.entries) e.key: e.value * 100 / total};
-  final out = {for (final e in scaled.entries) e.key: e.value.floor()};
-  final order = scaled.keys.toList()
-    ..sort((a, b) {
-      final byRest = (scaled[b]! - out[b]!).compareTo(scaled[a]! - out[a]!);
-      return byRest != 0 ? byRest : scaled[b]!.compareTo(scaled[a]!);
-    });
-  var missing = 100 - out.values.fold<int>(0, (a, b) => a + b);
-  for (final k in order) {
-    if (missing <= 0) break;
-    out[k] = out[k]! + 1;
-    missing--;
-  }
-  return out;
-}
+/// Short title for lists (history), in the language the result was made in.
+String cropHealthTitle(Map<String, dynamic> r) => cropHealthDecision(r)?.str('title') ?? 'Photo check';
+
+(IconData, Color) cropHealthStyle(String status, ColorScheme scheme) => switch (status) {
+      'healthy' => (Icons.check_circle, const Color(0xFF2E7D32)),
+      'needs_attention' => (Icons.warning_amber_rounded, const Color(0xFFB26A00)),
+      'retake_photo' => (Icons.add_a_photo_outlined, scheme.primary),
+      _ => (Icons.cloud_off_outlined, scheme.outline),
+    };
 
 class CropHealthResult extends StatelessWidget {
   const CropHealthResult({super.key, required this.r});
@@ -144,65 +129,83 @@ class CropHealthResult extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final percents = wholePercents(r.obj('probabilities'));
-    final probs = percents.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-    final flags = r.strs('quality_flags');
-    final features = r.obj('features');
-    final measurementsOnly = features['mode'] == 'measurements_only';
-    final symptoms = features['symptoms'] is List
-        ? (features['symptoms'] as List).map((e) => '$e').toList()
-        : <String>[];
-    // structured report (newer results); older stored results show the original layout
-    final analysis = features['analysis'] is Map ? Map<String, dynamic>.from(features['analysis'] as Map) : null;
-    final small = Theme.of(context).textTheme.bodySmall;
+    final decision = cropHealthDecision(r);
+    final analysis = r.obj('features').objOrNull('analysis');
+    final theme = Theme.of(context);
+    final small = theme.textTheme.bodySmall;
+    if (decision == null) {
+      // only an old result cached on the phone before the server sent decisions: no category is shown
+      return SectionCard(
+        title: 'Photo check',
+        icon: Icons.eco_outlined,
+        child: Text('Refresh to see this result. ${r.str('disclaimer')}'),
+      );
+    }
+    final status = decision.str('status');
+    final (icon, color) = cropHealthStyle(status, theme.colorScheme);
+    final signs = decision.strs('signs');
+    final showScore = status == 'healthy' || status == 'needs_attention';
     return SectionCard(
-      title: cropHealthTitle(r),
+      title: 'Photo check result',
       icon: Icons.eco_outlined,
       action: const DataKindChip('estimate'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (analysis != null) ConditionScore(condition: analysis.obj('condition')),
-          if (analysis == null && symptoms.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Text(
-                  'Signs the AI noticed: ${symptoms.map(label).join(', ')}',),
-            ),
-          if (!measurementsOnly) ...[
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text('Category leaning (AI estimate, not a measured probability)', style: small),
-            ),
-            for (final e in probs)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    SizedBox(width: 150, child: Text(label(e.key))),
-                    Expanded(
-                        child: LinearProgressIndicator(
-                            value: e.value / 100,
-                            minHeight: 8,),),
-                    SizedBox(
-                      width: 48,
-                      child: Text('${e.value}%', textAlign: TextAlign.end),
-                    ),
-                  ],
-                ),
+          Semantics(
+            container: true,
+            label: 'Result: ${decision.str('title')}. ${decision.str('summary')}',
+            excludeSemantics: true,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.10),
+                border: Border.all(color: color),
+                borderRadius: BorderRadius.circular(12),
               ),
-          ],
-          if (flags.isNotEmpty && analysis == null)
-            Text('Photo: ${flags.map(label).join(', ')} (see the tip below)',
-                style: const TextStyle(fontWeight: FontWeight.w600),),
-          if (analysis != null)
-            for (final s in analysis.objs('sections')) ReportSection(section: s),
-          const SizedBox(height: 8),
-          Text(r.str('explanation')),
-          if (analysis == null) ...[
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(icon, color: color, size: 32),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(decision.str('title'),
+                            style: theme.textTheme.titleLarge?.copyWith(color: color, fontWeight: FontWeight.w700),),
+                        const SizedBox(height: 4),
+                        Text(decision.str('summary')),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (decision.strOrNull('confidence_text') != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(decision.str('confidence_text'), style: const TextStyle(fontWeight: FontWeight.w600)),
+            ),
+          if (signs.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text(r.str('advice'),
-                style: const TextStyle(fontWeight: FontWeight.w600),),
+            for (final s in signs) Text('• $s'),
+          ],
+          if (analysis != null && showScore) ...[
+            const SizedBox(height: 8),
+            ConditionScore(condition: analysis.obj('condition')),
+          ],
+          // "What is visible" repeats the signs listed above, so it is shown only when there are none
+          if (analysis != null)
+            ...[
+              for (final s in analysis.objs('sections'))
+                if (s.str('id') != 'observations' || signs.isEmpty) ReportSection(section: s),
+            ]
+          else ...[
+            const SizedBox(height: 8),
+            for (final step in decision.strs('next_steps')) Text('• $step'),
           ],
           const SizedBox(height: 8),
           Text(r.str('disclaimer'), style: small),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:harvestique/core/storage/token_store.dart';
+import 'package:harvestique/core/widgets/brand.dart';
 import 'package:harvestique/features/auth/login_screen.dart';
 import 'package:harvestique/features/auth/phone.dart';
 
@@ -26,6 +27,20 @@ void main() {
     expect(find.text('Enter your mobile number'), findsOneWidget);
     expect(find.text('Required'), findsOneWidget); // the password
     expect(find.textContaining('one-time code'), findsNothing); // no SMS step any more
+  });
+
+  testWidgets('sign-in shows the seedling brand logo', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [tokenStoreProvider.overrideWithValue(NoTokens())],
+        child: const MaterialApp(home: LoginScreen()),
+      ),
+    );
+    expect(find.byType(BrandLogo), findsOneWidget);
+    expect(
+      find.byWidgetPredicate((w) => w is Image && w.image == const AssetImage(BrandLogo.asset)),
+      findsOneWidget,
+    );
   });
 
   group('phone numbers with a country code', () {

@@ -142,4 +142,11 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(Exception)
     async def _unhandled(_: Request, exc: Exception) -> JSONResponse:
         logger.exception("Unhandled error", exc_info=exc)
-        return JSONResponse(status_code=500, content=_envelope("internal_error", "Internal server error"))
+        # no internals in the body; the request id finds the full error in the server log
+        from app.core.logging import request_id_var
+
+        rid = request_id_var.get()
+        return JSONResponse(
+            status_code=500,
+            content=_envelope("internal_error", f"Internal server error (reference {rid})", {"request_id": rid}),
+        )

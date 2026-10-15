@@ -21,6 +21,9 @@ services:
         value: "false"
       - key: LOG_LEVEL
         value: INFO
+      # one JSON object per log line, each with the request id the app shows in error messages (Render > Logs)
+      - key: LOG_FORMAT
+        value: json
       # The Android app is not a browser, so it needs no CORS; no web origin may call the API with a user's token.
       - key: CORS_ORIGINS
         value: "[]"
@@ -60,3 +63,6 @@ services:
         value: "60"
       - key: VISION_TIMEOUT_SECONDS
         value: "90"
+      # crop-health checks + produce-grading photo suggestions per person per hour (protects the free AI allowance)
+      - key: AI_PHOTO_CHECKS_PER_HOUR
+        value: "20"

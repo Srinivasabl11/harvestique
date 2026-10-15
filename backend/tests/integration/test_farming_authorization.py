@@ -171,11 +171,12 @@ def test_every_farming_route_is_in_the_matrix(db_container, db_settings):
         for method in ops
         if method in {"get", "post", "patch", "put", "delete"} and re.sub(r"^/api/v1", "", path).startswith(prefixes)
     }
+    from tests.integration.test_grading_api import AUTHZ_ROUTES as GRADING_ROUTES
     from tests.integration.test_intelligence_authorization import ROUTES as INTELLIGENCE_ROUTES
 
     # Later phases add routes under the same prefixes (e.g. /farms/{id}/weather); they are covered by their
     # own matrix. The guarantee: every route here is covered by SOME matrix, and this matrix has no stale rows.
-    covered = {(r.method, r.path) for r in ROUTES} | {(r.method, r.path) for r in INTELLIGENCE_ROUTES}
+    covered = {(r.method, r.path) for r in ROUTES + INTELLIGENCE_ROUTES + GRADING_ROUTES}
     assert actual <= covered, f"missing from every matrix: {sorted(actual - covered)}"
     assert {(r.method, r.path) for r in ROUTES} <= actual, "stale rows in the farming matrix"
 

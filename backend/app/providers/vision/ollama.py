@@ -14,7 +14,9 @@ from __future__ import annotations
 import base64
 import io
 import json
+import logging
 import re
+import time
 from typing import Any
 
 import httpx
@@ -28,6 +30,7 @@ from app.domain.crop_profiles import CropContext, crop_matches
 from app.domain.vision import MAX_PROBABILITY, MIN_LABEL_PROBABILITY, TEXT, HealthAssessment, _cap, photo_quality
 from app.providers.vision.base import CropHealthClassifier
 
+logger = logging.getLogger(__name__)
 SYMPTOMS = (
     "yellowing",
     "brown_spots",
@@ -219,9 +222,22 @@ RETAKE_TIP = {
 }
 AI_NOTE = {"en": "What the AI sees (may be wrong)", "kn": "AI ಕಾಣುವುದು (ಇಂಗ್ಲಿಷ್‌ನಲ್ಲಿ, ತಪ್ಪಾಗಿರಬಹುದು)"}
 FALLBACK_NOTE = {
-    "en": "The local AI vision model was not available, so only a simple colour check was done (no health label).",
-    "kn": "ಸ್ಥಳೀಯ AI ದೃಷ್ಟಿ ಮಾದರಿ ಲಭ್ಯವಿರಲಿಲ್ಲ; ಸರಳ ಬಣ್ಣ ಪರಿಶೀಲನೆ ಮಾತ್ರ ಮಾಡಲಾಗಿದೆ (ಆರೋಗ್ಯ ಸ್ಥಿತಿ ನೀಡಿಲ್ಲ).",
+    "en": "The AI vision model was not available, so only a simple colour check was done (no health label).",
+    "kn": "AI ದೃಷ್ಟಿ ಮಾದರಿ ಲಭ್ಯವಿರಲಿಲ್ಲ; ಸರಳ ಬಣ್ಣ ಪರಿಶೀಲನೆ ಮಾತ್ರ ಮಾಡಲಾಗಿದೆ (ಆರೋಗ್ಯ ಸ್ಥಿತಿ ನೀಡಿಲ್ಲ).",
 }
+
+
+def failure_kind(exc: Exception) -> str:
+    """Why the model gave no usable answer, stored as `ai_error` and shown to the farmer: timeout (too slow),
+    busy (rate limited or overloaded), unavailable (not running, unreachable, model missing, key refused) or
+    invalid_response (an answer that failed validation)."""
+    if isinstance(exc, httpx.TimeoutException):
+        return "timeout"
+    if isinstance(exc, httpx.HTTPStatusError):
+        return "busy" if exc.response.status_code in (429, 503) else "unavailable"
+    if isinstance(exc, httpx.HTTPError):
+        return "unavailable"
+    return "invalid_response"
 
 
 def clean_description(text: str) -> str:
@@ -487,6 +503,22 @@ class OllamaVisionClassifier:
         self._model = model
         self._fallback = fallback
         self.version = model[:16]  # stored with each result (column is 16 characters)
+        self._available: bool | None = None
+        self._checked_at = 0.0
+
+    def is_available(self) -> bool:
+        """Is the vision model listed by the Ollama server? Cached for 30 s (readiness is polled). Listed is not the
+        same as answering: a hosted key that is wrong or out of allowance still fails per photo, and falls back."""
+        now = time.monotonic()
+        if self._available is None or now - self._checked_at >= 30.0:
+            try:
+                resp = self._client.get(f"{self._base}/api/tags", timeout=2.0)
+                names = {m.get("name") for m in resp.json().get("models", [])} if resp.status_code == 200 else set()
+                self._available = self._model in names or f"{self._model}:latest" in names
+            except (httpx.HTTPError, ValueError, AttributeError):
+                self._available = False
+            self._checked_at = now
+        return self._available
 
     def assess(self, rgb: np.ndarray, language: str, crop: CropContext | None = None) -> HealthAssessment:
         if crop is not None and crop.specialist_only:  # mushrooms: no green-plant rules, no model call
@@ -497,8 +529,11 @@ class OllamaVisionClassifier:
         try:
             raw = self._ask(rgb, crop)
             result = interpret(raw, language, crop)
-        except (httpx.HTTPError, KeyError, TypeError, ValueError):
-            return self._use_fallback(rgb, language)
+        except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+            kind = failure_kind(exc)
+            # the cause, never the photo, the answer text or any credential
+            logger.warning("crop-health vision model gave no usable answer: %s (%s)", kind, type(exc).__name__)
+            return self._use_fallback(rgb, language, kind)
         if self._generic_spots_uncertain and generic_spots_low(result):
             result = as_uncertain(result, language)
         return HealthAssessment(
@@ -550,13 +585,13 @@ class OllamaVisionClassifier:
             raise ValueError("not an object")
         return parsed
 
-    def _use_fallback(self, rgb: np.ndarray, language: str) -> HealthAssessment:
+    def _use_fallback(self, rgb: np.ndarray, language: str, kind: str = "unavailable") -> HealthAssessment:
         r = self._fallback.assess(rgb, language)  # colour measurements: no crop-specific judgement
         note = FALLBACK_NOTE.get(language, FALLBACK_NOTE["en"])
         return HealthAssessment(
             r.label,
             r.probabilities,
-            {**r.features, "ai_unavailable": True},
+            {**r.features, "ai_unavailable": True, "ai_error": kind},
             r.quality_flags,
             f"{note}\n{r.explanation}",
             r.advice,

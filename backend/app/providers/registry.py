@@ -30,6 +30,7 @@ from app.providers.prediction.demo import DemoScriptedPredictor
 from app.providers.speech.device import FakeSpeech, OnDeviceSpeech
 from app.providers.vision.base import ColourHeuristicClassifier, CropHealthClassifier
 from app.providers.vision.ollama import OllamaVisionClassifier
+from app.providers.vision.produce import DisabledProduceGrader, OllamaProduceGrader, ProduceGrader
 from app.providers.weather.base import WeatherProvider
 from app.providers.weather.fake import FakeWeatherProvider
 from app.providers.weather.open_meteo import OpenMeteoWeatherProvider
@@ -124,3 +125,15 @@ def build_crop_health_classifier(settings: Settings) -> CropHealthClassifier:
             fallback=ColourHeuristicClassifier(),
         )
     return ColourHeuristicClassifier()
+
+
+def build_produce_grader(settings: Settings) -> ProduceGrader:
+    """Produce-quality photo proposals use the same vision model and server as the crop-health check; without one
+    the farmer grades with the checklist (the API says the photo proposal is unavailable)."""
+    if settings.crop_health_classifier == "ollama_vision" and not _hosted_ollama_without_key(settings):
+        return OllamaProduceGrader(
+            client=_ollama_client(settings, settings.vision_timeout_seconds),
+            base_url=settings.ollama_base_url,
+            model=settings.ollama_vision_model,
+        )
+    return DisabledProduceGrader()

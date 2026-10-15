@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     app_env: Literal["development", "test", "production"] = "development"
     debug: bool = False
     log_level: str = "INFO"
+    log_format: Literal["text", "json"] = "text"  # json in production: one object per line
     api_v1_prefix: str = "/api/v1"
     cors_origins: list[str] = Field(default_factory=lambda: ["*"])
 
@@ -109,6 +110,9 @@ class Settings(BaseSettings):
     # v1: the evaluated production prompt. v2: candidate prompt (normal leaf features are not damage; colour and extent
     # of each sign), see docs/CROP_PHOTO_ANALYSIS_2026-10-15.md for its held-out comparison before switching.
     crop_health_prompt_version: Literal["v1", "v2"] = "v1"
+    # AI photo checks (crop health + produce grading proposals) per user per hour: each one holds the vision model for
+    # up to a minute and spends the hosted model's free allowance. Counted in memory (one server process).
+    ai_photo_checks_per_hour: int = Field(default=30, ge=1, le=1000)
 
     @field_validator("database_url")
     @classmethod

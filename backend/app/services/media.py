@@ -12,6 +12,7 @@ import hashlib
 import io
 import uuid
 import warnings
+from typing import Any
 
 import numpy as np
 from PIL import Image, UnidentifiedImageError
@@ -19,10 +20,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import DomainValidationError, NotFoundError
+from app.core.ratelimit import HourlyLimit
 from app.domain.crop_catalog import group_and_part
-from app.domain.crop_health_report import build_report
+from app.domain.crop_health_report import REPORT_VERSION, build_report
 from app.domain.crop_health_validation import MIN_PER_CLASS, MIN_RECALL, validation_for
 from app.domain.crop_profiles import context_for
+from app.domain.vision import HealthAssessment
 from app.models.crop import Crop, CropCycle
 from app.models.engagement import CropHealthAnalysis
 from app.models.farm import Farm, FarmPlot
@@ -115,10 +118,18 @@ def decode_image(data: bytes) -> np.ndarray:
 
 
 class CropHealthService:
-    def __init__(self, *, session: Session, repo: EngagementRepository, classifier: CropHealthClassifier) -> None:
+    def __init__(
+        self,
+        *,
+        session: Session,
+        repo: EngagementRepository,
+        classifier: CropHealthClassifier,
+        photo_limit: HourlyLimit | None = None,
+    ) -> None:
         self._session = session
         self._repo = repo
         self._classifier = classifier
+        self._limit = photo_limit
 
     def analyze(
         self,
@@ -148,6 +159,8 @@ class CropHealthService:
             else None
         )
         rgb = decode_image(data)
+        if self._limit is not None:
+            self._limit.check(owner_id)
         result = self._classifier.assess(rgb, language, context)
         validation = validation_for(crop.name) if crop is not None else None
         row = CropHealthAnalysis(
@@ -218,13 +231,30 @@ class CropHealthService:
         )
         return CropValidationReport(crops=out, summary=summary, rule=rule)
 
-    def _out(self, row: CropHealthAnalysis, explanation: str, advice: str) -> CropHealthOut:
+    @staticmethod
+    def _current_report(row: CropHealthAnalysis) -> dict[str, Any]:
+        """The stored report, rebuilt with the current rules (and decision) when an older version saved it. Only
+        stored values are used: the result itself never changes, only how it is explained."""
         features = dict(row.features)
+        stored = features.get("analysis")
+        if isinstance(stored, dict) and stored.get("version") == REPORT_VERSION and "decision" in stored:
+            return stored
+        language = stored.get("language", "en") if isinstance(stored, dict) else "en"
+        flags = list(features.get("quality_flags", []))
+        result = HealthAssessment(row.label, row.probabilities, features, flags)
+        return build_report(result, str(language), features.get("validation"), features.get("expected_crop"))
+
+    def _out(self, row: CropHealthAnalysis, explanation: str, advice: str) -> CropHealthOut:
+        report = self._current_report(row)
+        features = {**row.features, "analysis": report}
         flags = list(features.pop("quality_flags", []))
+        decision = report["decision"]
         return CropHealthOut(
             disclaimer=VISION_DISCLAIMER if row.model_name == "ollama-vision" else HEURISTIC_DISCLAIMER,
             id=row.id,
             crop_cycle_id=row.crop_cycle_id,
+            status=decision["status"],
+            decision=decision,
             label=row.label,
             probabilities=row.probabilities,
             features=features,

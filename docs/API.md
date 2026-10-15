@@ -17,7 +17,7 @@ Base path `/api/v1`. Interactive docs: `/docs` (Swagger UI) and `/openapi.json` 
   No endpoint returns or computes a market price.
 
 
-**140 operations.**
+**143 operations.**
 
 
 ## activities
@@ -238,6 +238,14 @@ Base path `/api/v1`. Interactive docs: `/docs` (Swagger UI) and `/openapi.json` 
 | `GET` | `/plots/{plot_id}` | farmer | - | PlotRead | Get Plot |
 | `PATCH` | `/plots/{plot_id}` | farmer | PlotUpdate (json) | PlotRead | Update Plot |
 | `DELETE` | `/plots/{plot_id}` | farmer | - | - | Delete Plot |
+
+## produce quality grading
+
+| Method | Path | Roles | Request | Response | Summary |
+|---|---|---|---|---|---|
+| `GET` | `/crop-cycles/{cycle_id}/grading` | farmer | - | ProduceGradingOut | The harvest's quality grade, the checks behind it and any AI proposal waiting for review |
+| `PUT` | `/crop-cycles/{cycle_id}/grading` | farmer | GradeConfirmIn (json) | ProduceGradingOut | Confirm the grade from your ratings of every check (manual, or after reviewing an AI proposal) |
+| `POST` | `/crop-cycles/{cycle_id}/grading/photo` | farmer | Body_propose_from_photo_api_v1_crop_cycles__cycle_id__grading_photo_post (form-data) | ProduceGradingOut | Propose ratings from a photo of the harvested produce (advisory; the farmer reviews and confirms) |
 
 ## reminders, notifications and calendar
 

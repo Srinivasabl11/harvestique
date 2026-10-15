@@ -4,12 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'kannada_quotes.dart';
 import 'quote_rotation.dart';
 
-/// Home hero: the Karnataka flag and map with the current Kannada quote at its centre.
-/// Only the quote and its counter fade when [quoteTickerProvider] moves on; the flag and name stay put.
-class KarnatakaQuoteHero extends ConsumerWidget {
-  const KarnatakaQuoteHero({super.key});
+/// Home hero: the Harvestique brand photo (a seedling in sunlit soil) with the current Kannada quote at its centre.
+/// Only the quote and its counter fade when [quoteTickerProvider] moves on; the photo and name stay put.
+class HarvestiqueQuoteHero extends ConsumerWidget {
+  const HarvestiqueQuoteHero({super.key});
 
-  static const asset = 'assets/images/karnataka_hero.png';
+  static const asset = 'assets/images/seedling_hero.jpg';
 
   static const _cream = Color(0xFFFFF6E0);
   static const _gold = Color(0xFFF2C94C);
@@ -40,8 +40,14 @@ class KarnatakaQuoteHero extends ConsumerWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.asset(asset, fit: BoxFit.cover, filterQuality: FilterQuality.medium),
-                    // Darkest behind the quote; the flag's yellow and red stay visible at the edges.
+                    // the seedling sits just below the centre of the photo; keep it in view on wide crops
+                    Image.asset(
+                      asset,
+                      fit: BoxFit.cover,
+                      alignment: const Alignment(0, 0.1),
+                      filterQuality: FilterQuality.medium,
+                    ),
+                    // Darkest behind the quote; the sunlight and the seedling's leaves stay visible around it.
                     const DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: RadialGradient(
@@ -114,7 +120,7 @@ class _Wordmark extends StatelessWidget {
           'HARVESTIQUE',
           maxLines: 1,
           style: TextStyle(
-            color: KarnatakaQuoteHero._cream,
+            color: HarvestiqueQuoteHero._cream,
             fontSize: 20,
             fontWeight: FontWeight.w700,
             letterSpacing: 6,
@@ -122,7 +128,7 @@ class _Wordmark extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        // Karnataka yellow and red, as a thin rule under the name.
+        // leaf green and sunlight gold, as a thin rule under the name
         ClipRRect(
           borderRadius: BorderRadius.circular(2),
           child: const SizedBox(
@@ -130,8 +136,8 @@ class _Wordmark extends StatelessWidget {
             height: 3,
             child: Row(
               children: [
-                Expanded(child: ColoredBox(color: Color(0xFFF2C500))),
-                Expanded(child: ColoredBox(color: Color(0xFFD6252B))),
+                Expanded(child: ColoredBox(color: Color(0xFF9BD12F))),
+                Expanded(child: ColoredBox(color: HarvestiqueQuoteHero._gold)),
               ],
             ),
           ),
@@ -162,7 +168,7 @@ class _Quote extends StatelessWidget {
               Text(
                 '“',
                 style: TextStyle(
-                  color: KarnatakaQuoteHero._gold,
+                  color: HarvestiqueQuoteHero._gold,
                   fontSize: size * 1.9,
                   height: 0.9,
                   fontWeight: FontWeight.w700,
@@ -173,7 +179,7 @@ class _Quote extends StatelessWidget {
                 textAlign: TextAlign.center,
                 locale: const Locale('kn', 'IN'),
                 style: TextStyle(
-                  color: KarnatakaQuoteHero._cream,
+                  color: HarvestiqueQuoteHero._cream,
                   fontSize: size,
                   fontWeight: FontWeight.w700,
                   height: 1.6, // room for Kannada vowel signs above and below the line
@@ -199,14 +205,14 @@ class _Counter extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: KarnatakaQuoteHero._gold.withValues(alpha: 0.6)),
+        border: Border.all(color: HarvestiqueQuoteHero._gold.withValues(alpha: 0.6)),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         child: Text(
           '$number / ${kannadaQuotes.length}',
           style: const TextStyle(
-            color: KarnatakaQuoteHero._cream,
+            color: HarvestiqueQuoteHero._cream,
             fontSize: 13,
             fontWeight: FontWeight.w600,
             letterSpacing: 1,

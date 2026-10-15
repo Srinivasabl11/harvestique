@@ -94,6 +94,57 @@ class HarvestActual(UUIDPrimaryKeyMixin, Base):
     correction_reason: Mapped[str | None] = mapped_column(String(255))
 
 
+class ProduceGrading(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """The farmer's A/B/C quality grade of one recorded harvest (domain.produce_grading), with its evidence.
+
+    An AI photo proposal (optional) and the farmer's confirmed ratings are kept side by side, so a correction of the
+    AI is visible. `grade` is set only when every check of the profile was rated and the farmer confirmed it; it may
+    be lower than the ratings support (with a reason), never higher. Locked once produce reached a collection hub,
+    whose measured quality check then decides."""
+
+    __tablename__ = "produce_gradings"
+    __table_args__ = (
+        CheckConstraint("(grade IS NULL) = (confirmed_at IS NULL)", name="grade_iff_confirmed"),
+        CheckConstraint("(grade IS NULL) = (criteria_grade IS NULL)", name="criteria_grade_with_grade"),
+        CheckConstraint("grade IS NULL OR grade >= criteria_grade", name="grade_not_above_criteria"),
+        CheckConstraint(
+            "grade_source IS NULL OR grade_source IN ('manual', 'photo_confirmed', 'photo_corrected')",
+            name="grade_source_known",
+        ),
+        CheckConstraint(
+            "proposal_status IS NULL OR proposal_status IN "
+            "('proposed', 'needs_more_evidence', 'retake_photo', 'unavailable')",
+            name="proposal_status_known",
+        ),
+    )
+
+    harvest_actual_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("harvest_actuals.id", ondelete="RESTRICT"), unique=True
+    )
+    owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), index=True)
+    profile: Mapped[str] = mapped_column(String(16))  # fresh | dry (domain.produce_grading.PROFILES)
+    criteria_version: Mapped[int] = mapped_column(Integer)
+    # latest AI photo proposal (photo itself not stored: only its SHA-256 in proposal_details)
+    proposal_status: Mapped[str | None] = mapped_column(String(24))
+    proposal_reason: Mapped[str | None] = mapped_column(String(40))
+    proposed_levels: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
+    proposed_grade: Mapped[QualityGrade | None] = mapped_column(
+        enum_column(QualityGrade, name="proposed_grade", length=2)
+    )
+    proposal_details: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
+    proposed_at: Mapped[datetime | None]
+    # the farmer's confirmed grade
+    levels: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
+    criteria_grade: Mapped[QualityGrade | None] = mapped_column(
+        enum_column(QualityGrade, name="criteria_grade", length=2)
+    )
+    grade: Mapped[QualityGrade | None] = mapped_column(enum_column(QualityGrade, name="produce_grade", length=2))
+    grade_source: Mapped[str | None] = mapped_column(String(16))
+    override_reason: Mapped[str | None] = mapped_column(String(255))
+    confirmed_at: Mapped[datetime | None]
+    confirmed_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
+
+
 class PredictionFeedback(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "prediction_feedback"
 

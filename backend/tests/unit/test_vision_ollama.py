@@ -224,7 +224,7 @@ def test_falls_back_to_the_colour_check_and_says_so(handler):
     r = _classifier(handler).assess(LEAF, "en")
     assert r.model_name == "colour-heuristic"
     assert r.features["ai_unavailable"] is True
-    assert r.explanation.startswith("The local AI vision model was not available")
+    assert r.explanation.startswith("The AI vision model was not available")
 
 
 def test_dim_leaf_photo_is_not_rejected_any_more():

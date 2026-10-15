@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -97,6 +97,11 @@ class MatchOut(BaseModel):
     risk: JsonNumber | None
     reliability: JsonNumber
     distance_km: JsonNumber | None
+    grade: QualityGrade = Field(description="The farmer's grade for this lot (indicative, not an official grade)")
+    grade_basis: Literal["farmer_graded", "farmer_expected"] = Field(
+        description="farmer_graded: the farmer graded the recorded harvest against the A/B/C checks; "
+        "farmer_expected: the farmer's expectation before harvest. The hub's quality check decides acceptance."
+    )
 
 
 class MatchesOut(BaseModel):

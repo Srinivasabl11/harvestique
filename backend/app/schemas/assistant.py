@@ -12,6 +12,7 @@ from app.core.enums import CropHealthClass, DataKind
 from app.schemas.base import StrictModel
 
 Lang = Literal["en", "kn"]
+CropHealthStatus = Literal["healthy", "needs_attention", "retake_photo", "unavailable"]
 Message = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
 
 
@@ -154,8 +155,16 @@ class CropValidationReport(BaseModel):
 class CropHealthOut(BaseModel):
     id: uuid.UUID
     crop_cycle_id: uuid.UUID | None
-    label: CropHealthClass
-    probabilities: dict[str, float]
+    status: CropHealthStatus = Field(
+        description="What the farmer sees: healthy, needs_attention, retake_photo (no health claim: a clearer photo "
+        "is needed) or unavailable (the AI check could not run; no health claim)"
+    )
+    decision: dict[str, Any] = Field(
+        description="status, reason, title, summary, confidence (low/medium/high or null), confidence_text, signs, "
+        "next_steps; texts in the request's language. Advisory, never a diagnosis."
+    )
+    label: CropHealthClass = Field(description="Internal model category, kept for evaluations; not shown to farmers")
+    probabilities: dict[str, float] = Field(description="Internal, for evaluations; not measured probabilities")
     features: dict[str, Any]
     quality_flags: list[str]
     explanation: str

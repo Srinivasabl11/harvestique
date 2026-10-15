@@ -33,6 +33,7 @@ from app.services.crops import CropService
 from app.services.engagement import NotificationService, ReminderService
 from app.services.farm_records import ActivityService, ExpenseService, ObservationService
 from app.services.farms import FarmService, PlotService
+from app.services.grading import GradingService
 from app.services.insights import InsightService
 from app.services.inventory import InventoryService
 from app.services.market_prices import MarketPriceService
@@ -244,7 +245,22 @@ def build_assistant_service(session: Session, container: Container) -> Assistant
 
 
 def build_crop_health_service(session: Session, container: Container) -> CropHealthService:
-    return CropHealthService(session=session, repo=EngagementRepository(session), classifier=container.crop_health)
+    return CropHealthService(
+        session=session,
+        repo=EngagementRepository(session),
+        classifier=container.crop_health,
+        photo_limit=container.ai_photo_limit,
+    )
+
+
+def build_grading_service(session: Session, container: Container) -> GradingService:
+    return GradingService(
+        session=session,
+        grader=container.produce_grader,
+        update_lot=build_pool_service(session, container).update_lot,
+        clock=container.clock,
+        photo_limit=container.ai_photo_limit,
+    )
 
 
 def build_speech_service(container: Container) -> SpeechService:

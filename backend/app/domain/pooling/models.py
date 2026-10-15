@@ -52,6 +52,7 @@ class Supply:
     longitude: Decimal | None = None
     opted_in: bool = True
     lot_open: bool = True
+    grade_confirmed: bool = False  # True: the farmer graded the recorded harvest; False: their expected grade
 
 
 @dataclass(frozen=True, slots=True)

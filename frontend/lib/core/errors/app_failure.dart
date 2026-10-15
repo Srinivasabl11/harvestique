@@ -6,8 +6,8 @@ class AppFailure implements Exception {
   final String code;
   final String message;
 
-  /// True when the server could not be reached (no network, timeout).
-  bool get isOffline => code == 'network';
+  /// True when the server could not be reached (no network, timeout, or the host's proxy says it is starting).
+  bool get isOffline => code == 'network' || code == 'server_unavailable';
 
   @override
   String toString() => 'AppFailure($code): $message';

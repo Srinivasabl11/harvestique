@@ -7,6 +7,7 @@ import '../../core/util/json.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/record_actions.dart';
 import '../crop_health/crop_health_screen.dart';
+import '../harvest/grading_screen.dart';
 import 'edit_dialogs.dart';
 import 'activities_screen.dart';
 import 'expenses_screen.dart';
@@ -36,11 +37,19 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
       api.getList('/crop-health/analyses', query: {'crop_cycle_id': id}),
     ]);
     Map<String, dynamic>? feedback;
+    Map<String, dynamic>? grading;
     if (r[0] is Map<String, dynamic> && (r[0] as Map<String, dynamic>).str('status') == 'harvested') {
       try {
         feedback = await api.getObj('/crop-cycles/$id/feedback');
       } catch (_) {
         feedback = null;
+      }
+      if (feedback?.objOrNull('actual') != null) {
+        try {
+          grading = await api.getObj('/crop-cycles/$id/grading');
+        } catch (_) {
+          grading = null; // an older server without grading: the card is simply not shown
+        }
       }
     }
     final preds = (r[1] as List<Map<String, dynamic>>)..sort((a, b) => b.intVal('version').compareTo(a.intVal('version')));
@@ -50,6 +59,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
       'observations': r[2],
       'health': r[3],
       if (feedback != null) 'feedback': feedback,
+      if (grading != null) 'grading': grading,
     };
   }
 
@@ -154,7 +164,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                     : Column(
                         children: [
                           for (final h in d.objs('health').take(5))
-                            KeyValue(day(h.str('created_at')), label(h.str('label')), kind: 'estimate'),
+                            KeyValue(day(h.str('created_at')), cropHealthTitle(h), kind: 'estimate'),
                         ],
                       ),
               ),
@@ -171,6 +181,15 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                       }
                     },
                   ),
+                ),
+              if (d.objOrNull('grading') != null)
+                GradeCard(
+                  grading: d.obj('grading'),
+                  onOpen: () async {
+                    await Navigator.of(context)
+                        .push(MaterialPageRoute<void>(builder: (_) => GradingScreen(cycleId: widget.cycleId)));
+                    _refresh();
+                  },
                 ),
               if (d.objOrNull('feedback') != null) _FeedbackCard(report: d.obj('feedback')),
             ],
@@ -583,6 +602,35 @@ class _FeedbackCard extends StatelessWidget {
                   : 'off by ${number(f.numVal('abs_pct_error'))}%${f.boolVal('within_interval') ? ' (inside range)' : ''}',
             ),
           Text(report.str('note'), style: Theme.of(context).textTheme.bodySmall),
+        ],
+      ),
+    );
+  }
+}
+
+/// The harvest's A/B/C grade (or that it is not graded yet), with the way to grade or review it.
+class GradeCard extends StatelessWidget {
+  const GradeCard({super.key, required this.grading, required this.onOpen});
+
+  final Map<String, dynamic> grading;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final grade = grading.strOrNull('grade');
+    final status = grading.str('status');
+    return SectionCard(
+      title: 'Produce quality grade',
+      icon: Icons.workspace_premium_outlined,
+      action: TextButton(
+        onPressed: onOpen,
+        child: Text(grading.boolVal('locked') ? 'View' : (status == 'needs_review' ? 'Review' : (grade == null ? 'Grade' : 'Change'))),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (grade != null) KeyValue('Grade', grade, kind: 'user_entered'),
+          Text(grading.str('status_text')),
         ],
       ),
     );

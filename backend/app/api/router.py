@@ -15,6 +15,7 @@ from app.api.v1 import (
     expenses,
     farmers,
     farms,
+    grading,
     health,
     intelligence,
     inventory,
@@ -42,6 +43,7 @@ api_router.include_router(planning.router, prefix="/planning", tags=["planning"]
 api_router.include_router(crop_plans.router, tags=["crop plans"])
 api_router.include_router(intelligence.router, tags=["intelligence"])
 api_router.include_router(inventory.router, tags=["inventory"])
+api_router.include_router(grading.router, tags=["produce quality grading"])
 api_router.include_router(pooling.router, tags=["harvest pooling"])
 api_router.include_router(marketplace.router, tags=["marketplace"])
 api_router.include_router(engagement.router, tags=["reminders, notifications and calendar"])

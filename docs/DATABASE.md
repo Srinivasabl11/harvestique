@@ -19,7 +19,7 @@ deleted from under it. Append-only tables (never updated by the application): `y
 * notifications: unique (user, dedup key) - the same event never notifies twice
 
 
-**38 tables.**
+**39 tables.**
 
 
 ### `allocation_ledger`
@@ -607,6 +607,33 @@ Constraints: UNIQUE (prediction_id)
 | `updated_at` | DATETIME | no |  |
 
 Constraints: CHECK `ck_produce_batches_batch_status`: `produce_batches.status IN (__[POSTCOMPILE_param_1])`; CHECK `ck_produce_batches_received_positive`: `received_kg > 0`; UNIQUE (code)
+
+### `produce_gradings`
+
+| Column | Type | Null | Notes |
+|---|---|---|---|
+| `harvest_actual_id` | CHAR(32) | no | FK -> `harvest_actuals` (RESTRICT), unique |
+| `owner_id` | CHAR(32) | no | FK -> `users` (RESTRICT), indexed |
+| `profile` | VARCHAR(16) | no |  |
+| `criteria_version` | INTEGER | no |  |
+| `proposal_status` | VARCHAR(24) | yes |  |
+| `proposal_reason` | VARCHAR(40) | yes |  |
+| `proposed_levels` | JSON | yes |  |
+| `proposed_grade` | VARCHAR(2) | yes |  |
+| `proposal_details` | JSON | yes |  |
+| `proposed_at` | DATETIME | yes |  |
+| `levels` | JSON | yes |  |
+| `criteria_grade` | VARCHAR(2) | yes |  |
+| `grade` | VARCHAR(2) | yes |  |
+| `grade_source` | VARCHAR(16) | yes |  |
+| `override_reason` | VARCHAR(255) | yes |  |
+| `confirmed_at` | DATETIME | yes |  |
+| `confirmed_by` | CHAR(32) | yes | FK -> `users` (RESTRICT) |
+| `id` | CHAR(32) | no | PK |
+| `created_at` | DATETIME | no |  |
+| `updated_at` | DATETIME | no |  |
+
+Constraints: CHECK `ck_produce_gradings_criteria_grade_with_grade`: `(grade IS NULL) = (criteria_grade IS NULL)`; CHECK `ck_produce_gradings_criteria_grade`: `produce_gradings.criteria_grade IN (__[POSTCOMPILE_param_1])`; CHECK `ck_produce_gradings_grade_iff_confirmed`: `(grade IS NULL) = (confirmed_at IS NULL)`; CHECK `ck_produce_gradings_grade_not_above_criteria`: `grade IS NULL OR grade >= criteria_grade`; CHECK `ck_produce_gradings_grade_source_known`: `grade_source IS NULL OR grade_source IN ('manual', 'photo_confirmed', 'photo_corrected')`; CHECK `ck_produce_gradings_produce_grade`: `produce_gradings.grade IN (__[POSTCOMPILE_param_1])`; CHECK `ck_produce_gradings_proposal_status_known`: `proposal_status IS NULL OR proposal_status IN ('proposed', 'needs_more_evidence', 'retake_photo', 'unavailable')`; CHECK `ck_produce_gradings_proposed_grade`: `produce_gradings.proposed_grade IN (__[POSTCOMPILE_param_1])`; UNIQUE (harvest_actual_id)
 
 ### `quality_checks`
 

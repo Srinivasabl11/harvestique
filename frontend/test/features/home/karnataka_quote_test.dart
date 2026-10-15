@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:harvestique/features/home/quotes/karnataka_quote_hero.dart';
+import 'package:harvestique/features/home/quotes/quote_hero.dart';
 import 'package:harvestique/features/home/quotes/kannada_quotes.dart';
 import 'package:harvestique/features/home/quotes/quote_rotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -230,9 +230,9 @@ void main() {
 
     // Stand-ins for Farmer Home and Buyer Market: both place the hero at the top of a list.
     Widget farmerHome() =>
-        ListView(key: const ValueKey('farmer'), children: const [KarnatakaQuoteHero(), Text('Namaskara')]);
+        ListView(key: const ValueKey('farmer'), children: const [HarvestiqueQuoteHero(), Text('Namaskara')]);
     Widget buyerMarket() =>
-        ListView(key: const ValueKey('buyer'), children: const [KarnatakaQuoteHero(), Text('Search future harvests')]);
+        ListView(key: const ValueKey('buyer'), children: const [HarvestiqueQuoteHero(), Text('Search future harvests')]);
 
     String text(int n) => kannadaQuotes[n - 1].kannada;
 

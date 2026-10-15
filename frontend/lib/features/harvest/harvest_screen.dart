@@ -171,7 +171,7 @@ class _LotCardState extends ConsumerState<_LotCard> {
             ),
             Row(
               children: [
-                const Text('Expected grade: '),
+                const Text('Grade for buyers: '),
                 DropdownButton<String>(
                   value: lot.str('expected_grade', 'B'),
                   items: const [
@@ -183,7 +183,7 @@ class _LotCardState extends ConsumerState<_LotCard> {
                       ? null
                       : (v) {
                           if (v == null || v == lot.str('expected_grade', 'B')) return;
-                          _update({'expected_grade': v}, 'Expected grade set to $v.');
+                          _update({'expected_grade': v}, 'Grade for buyers set to $v.');
                         },
                 ),
                 const Spacer(),

@@ -23,6 +23,7 @@ from app.composition import (
     build_crop_service,
     build_expense_service,
     build_farm_service,
+    build_grading_service,
     build_insight_service,
     build_inventory_service,
     build_marketplace_service,
@@ -51,6 +52,7 @@ from app.services.crops import CropService
 from app.services.engagement import NotificationService, ReminderService
 from app.services.farm_records import ActivityService, ExpenseService, ObservationService
 from app.services.farms import FarmService, PlotService
+from app.services.grading import GradingService
 from app.services.insights import InsightService
 from app.services.inventory import InventoryService
 from app.services.marketplace import MarketplaceService
@@ -90,7 +92,7 @@ SessionDep = Annotated[Session, Depends(get_db_session)]
 
 
 def get_system_health_service(container: ContainerDep) -> SystemHealthService:
-    return SystemHealthService(db_check=container.check_database, llm=container.llm)
+    return SystemHealthService(db_check=container.check_database, llm=container.llm, vision=container.crop_health)
 
 
 # ----------------------------------------------------------------- services
@@ -267,6 +269,10 @@ def get_crop_health_service(session: SessionDep, container: ContainerDep) -> Cro
     return build_crop_health_service(session, container)
 
 
+def get_grading_service(session: SessionDep, container: ContainerDep) -> GradingService:
+    return build_grading_service(session, container)
+
+
 def get_speech_service(container: ContainerDep) -> SpeechService:
     return build_speech_service(container)
 
@@ -277,5 +283,6 @@ ReminderServiceDep = Annotated[ReminderService, Depends(get_reminder_service)]
 InsightServiceDep = Annotated[InsightService, Depends(get_insight_service)]
 AssistantServiceDep = Annotated[AssistantService, Depends(get_assistant_service)]
 CropHealthServiceDep = Annotated[CropHealthService, Depends(get_crop_health_service)]
+GradingServiceDep = Annotated[GradingService, Depends(get_grading_service)]
 SpeechServiceDep = Annotated[SpeechService, Depends(get_speech_service)]
 FarmerOrBuyerDep = Annotated[CurrentUser, Depends(require_roles(UserRole.FARMER, UserRole.BUYER))]

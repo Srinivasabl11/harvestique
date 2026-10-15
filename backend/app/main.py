@@ -15,13 +15,14 @@ from app.core.config import Settings, get_settings
 from app.core.container import Container, build_container
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
+from app.core.request_log import RequestLogMiddleware
 
 logger = logging.getLogger(__name__)
 
 
 def create_app(settings: Settings | None = None, container: Container | None = None) -> FastAPI:
     settings = settings or get_settings()
-    configure_logging(settings.log_level)
+    configure_logging(settings.log_level, settings.log_format)
     container = container or build_container(settings)
 
     @asynccontextmanager
@@ -48,6 +49,7 @@ def create_app(settings: Settings | None = None, container: Container | None = N
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(RequestLogMiddleware)  # outermost: every response gets X-Request-ID, CORS ones included
     register_exception_handlers(app)
     app.include_router(api_router, prefix=settings.api_v1_prefix)
     return app
