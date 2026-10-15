@@ -1,4 +1,4 @@
-"""POST /auth/login, invalid credentials, and brute-force lockout."""
+"""POST /auth/login (phone + password, no SMS code), invalid credentials, and brute-force lockout."""
 
 from __future__ import annotations
 
@@ -14,12 +14,7 @@ pytestmark = pytest.mark.integration
 
 
 def login(client, phone="9876543210", password=PASSWORD):
-    """Both steps: password (a code is sent) and, if accepted, the code. Returns the response that decided it."""
-    r = client.post(URL, json={"phone": phone, "password": password})
-    if r.status_code != 202:
-        return r
-    ch = r.json()
-    return client.post(f"{URL}/verify", json={"challenge_id": ch["challenge_id"], "code": ch["dev_code"]})
+    return client.post(URL, json={"phone": phone, "password": password})
 
 
 def test_login_success_returns_user_and_tokens(db_client, register_farmer):
@@ -29,6 +24,7 @@ def test_login_success_returns_user_and_tokens(db_client, register_farmer):
     body = r.json()
     assert body["user"]["role"] == "farmer" and body["user"]["last_login_at"]
     assert db_client.get("/api/v1/auth/me", headers=bearer(body["tokens"]["access_token"])).status_code == 200
+    assert r.headers["cache-control"] == "no-store"  # tokens must never be cached
 
 
 @pytest.mark.parametrize("phone", ["9876543210", "+919876543210", "98765 43210", "919876543210"])
@@ -145,3 +141,36 @@ def test_lockout_is_per_phone(db_client, register_farmer, register_buyer, fixed_
     for _ in range(5):
         login(db_client, password="WrongPass123")
     assert login(db_client, phone="9123456780").status_code == 200
+
+
+def test_daily_cap_locks_a_phone_after_many_spread_out_failures(db_client, register_farmer, fixed_clock):
+    """Password-only sign-in: guessing slowly (under the 15-minute limit) still stops after 20 failures a day."""
+    register_farmer()
+    start = fixed_clock.now()
+    for i in range(20):
+        fixed_clock.advance_to(start + timedelta(minutes=16 * i))  # never 5 within one 15-minute window
+        assert login(db_client, password="WrongPass123").status_code == 401
+    fixed_clock.advance_to(start + timedelta(minutes=16 * 20))
+    r = login(db_client)
+    assert r.status_code == 429 and r.json()["error"]["code"] == "account_locked"
+    # locked until the OLDEST failure of the day is 24 hours old
+    assert r.json()["error"]["details"]["retry_after_seconds"] == int(timedelta(days=1).total_seconds()) - 16 * 20 * 60
+    fixed_clock.advance_to(start + timedelta(days=1, seconds=1))
+    assert login(db_client).status_code == 200
+
+
+def test_a_sign_up_left_unfinished_in_the_sms_era_cannot_sign_in(db_client, db_container, register_farmer):
+    register_farmer()
+    with db_container.engine.begin() as conn:
+        conn.execute(text("UPDATE users SET registration_pending = true"))
+    r = login(db_client)
+    assert r.status_code == 401 and r.json()["error"]["code"] == "invalid_credentials"
+
+
+def test_existing_sessions_survive_and_no_sms_endpoints_remain(db_client, register_farmer):
+    tokens = register_farmer()["tokens"]
+    for path in ("register/verify", "login/verify", "otp/resend", "password/forgot", "password/reset"):
+        assert db_client.post(f"/api/v1/auth/{path}", json={}).status_code == 404
+    assert db_client.get("/api/v1/auth/me", headers=bearer(tokens["access_token"])).status_code == 200
+    r = db_client.post("/api/v1/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+    assert r.status_code == 200 and r.headers["cache-control"] == "no-store"

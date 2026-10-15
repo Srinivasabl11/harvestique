@@ -28,12 +28,9 @@ from app.providers.registry import (
     build_market_price_provider,
     build_notification_channel,
     build_prediction_provider,
-    build_sms_sender,
     build_speech_provider,
     build_weather_provider,
 )
-from app.providers.sms.base import SmsSender
-from app.providers.sms.providers import DevConsoleSms
 from app.providers.speech.device import FakeSpeech, OnDeviceSpeech
 from app.providers.vision.base import ColourHeuristicClassifier, CropHealthClassifier
 from app.providers.weather.base import WeatherProvider
@@ -51,7 +48,6 @@ class Container:
     predictor: PredictionProvider
     tokens: TokenCodec
     speech: OnDeviceSpeech | FakeSpeech = field(default_factory=OnDeviceSpeech)
-    sms: SmsSender = field(default_factory=DevConsoleSms)
     crop_health: CropHealthClassifier = field(default_factory=ColourHeuristicClassifier)
     market_prices: MarketPriceProvider = field(default_factory=DisabledMarketPrices)
     clock: Clock = field(default_factory=SystemClock)
@@ -75,7 +71,6 @@ def build_container(settings: Settings) -> Container:
         notifications=build_notification_channel(settings),
         predictor=build_prediction_provider(settings),
         speech=build_speech_provider(settings),
-        sms=build_sms_sender(settings),
         crop_health=build_crop_health_classifier(settings),
         market_prices=build_market_price_provider(settings),
         passwords=PasswordHasher(

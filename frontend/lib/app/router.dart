@@ -4,9 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../features/admin/admin_shell.dart';
 import '../features/auth/auth_controller.dart';
-import '../features/auth/forgot_password_screen.dart';
+import '../features/auth/change_password_screen.dart';
 import '../features/auth/login_screen.dart';
-import '../features/auth/otp_screen.dart';
 import '../features/auth/register_screen.dart';
 import '../features/buyer/buyer_shell.dart';
 import '../features/shell/farmer_shell.dart';
@@ -41,8 +40,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         case AuthStatus.unknown:
           return loc == '/splash' ? null : '/splash';
         case AuthStatus.signedOut:
-          const open = [LoginScreen.routePath, RegisterScreen.routePath, OtpScreen.routePath, ForgotPasswordScreen.routePath];
-          if (loc == OtpScreen.routePath && state.extra is! Map<String, dynamic>) return LoginScreen.routePath;
+          const open = [LoginScreen.routePath, RegisterScreen.routePath, ChangePasswordScreen.routePath];
+          if (loc == ChangePasswordScreen.routePath && state.extra is! String) return LoginScreen.routePath;
           return open.contains(loc) ? null : LoginScreen.routePath;
         case AuthStatus.signedIn:
           final home = homeFor(auth.role);
@@ -53,10 +52,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/splash', builder: (context, state) => const _Splash()),
       GoRoute(path: LoginScreen.routePath, builder: (context, state) => const LoginScreen()),
       GoRoute(path: RegisterScreen.routePath, builder: (context, state) => const RegisterScreen()),
-      GoRoute(path: ForgotPasswordScreen.routePath, builder: (context, state) => const ForgotPasswordScreen()),
       GoRoute(
-        path: OtpScreen.routePath,
-        builder: (context, state) => OtpScreen(challenge: state.extra! as Map<String, dynamic>),
+        path: ChangePasswordScreen.routePath,
+        builder: (context, state) => ChangePasswordScreen(phone: state.extra! as String, forced: true),
       ),
       GoRoute(path: FarmerShell.routePath, builder: (context, state) => const FarmerShell()),
       GoRoute(path: BuyerShell.routePath, builder: (context, state) => const BuyerShell()),

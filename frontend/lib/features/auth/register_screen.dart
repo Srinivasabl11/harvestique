@@ -4,7 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/widgets/common.dart';
 import 'auth_controller.dart';
-import 'otp_screen.dart';
+import 'change_password_screen.dart';
+import 'login_screen.dart';
 import 'phone.dart';
 
 /// Public sign-up is for farmers and buyers only (admins are created by operators).
@@ -49,9 +50,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             'buyer_type': _buyerType,
             if (district.isNotEmpty) 'district': district,
           };
-    Map<String, dynamic>? challenge;
+    String? waiting;
     await runAction(context, () async {
-      challenge = await ref.read(authProvider.notifier).register({
+      waiting = await ref.read(authProvider.notifier).register({
         'role': _role,
         'full_name': _name.text.trim(),
         'phone': e164(_country, _phone.text),
@@ -61,14 +62,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     });
     if (!mounted) return;
     setState(() => _busy = false);
-    if (challenge != null) context.go(OtpScreen.routePath, extra: challenge);
-  }
-
-  String? _password8(String? v) {
-    final s = v ?? '';
-    if (s.length < 8) return 'At least 8 characters';
-    if (!s.contains(RegExp('[A-Za-z]')) || !s.contains(RegExp('[0-9]'))) return 'Use letters and numbers';
-    return null;
+    final message = waiting;
+    if (message == null) return; // signed in (open sign-up), or the request failed and was reported
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Account request received'),
+        content: Text(message),
+        actions: [FilledButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+      ),
+    );
+    if (mounted) context.go(LoginScreen.routePath);
   }
 
   @override
@@ -114,7 +119,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
               ],
             ),
-            FormText(controller: _password, label: 'Password (8+ letters and numbers)', obscure: true, validator: _password8),
+            FormText(controller: _password, label: 'Password (8+ letters and numbers)', obscure: true, validator: validateNewPassword),
             FormText(controller: _district, label: 'District (optional)'),
             if (_role == 'farmer')
               DropdownButtonFormField<String>(
@@ -143,11 +148,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             ],
             const SizedBox(height: 16),
             const Text(
-              'We send a one-time code to this number to verify it before the account is created.',
+              'The Harvestique team checks each new account before it can be used. You can sign in with this '
+              'number and password once it is approved.',
               style: TextStyle(fontSize: 12),
             ),
             const SizedBox(height: 8),
-            FilledButton(onPressed: _busy ? null : _submit, child: Text(_busy ? 'Sending code…' : 'Create account')),
+            FilledButton(onPressed: _busy ? null : _submit, child: Text(_busy ? 'Creating account…' : 'Create account')),
           ],
         ),
       ),

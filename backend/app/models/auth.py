@@ -41,13 +41,8 @@ class LoginAttempt(UUIDPrimaryKeyMixin, Base):
 
 
 class OtpChallenge(UUIDPrimaryKeyMixin, Base):
-    """One pending phone-verification step (registration or login).
-
-    The code is never stored: only HMAC-SHA256(server secret, challenge id + code). A challenge is single-use
-    (`consumed_at`), expires, and allows `max_attempts` wrong codes in total, resends included. A *decoy* challenge
-    answers a registration for a number that already has an account: the response looks the same (no account
-    enumeration) but no SMS is sent and no code can ever pass.
-    """
+    """HISTORY ONLY: SMS one-time codes from before sign-in became password-only (migration 0017). Nothing reads or
+    writes this table any more; it is kept so no data is dropped. Codes were stored only as HMACs."""
 
     __tablename__ = "otp_challenges"
     __table_args__ = (

@@ -17,6 +17,7 @@ class AuthState {
 
   String get role => user.str('role');
   String get name => user.str('full_name');
+  String get phone => user.str('phone');
 
   /// Preferred language from the farmer profile ("en" or "kn"); used for assistant replies and voice.
   String get language => user.obj('farmer_profile').str('preferred_language', 'en');
@@ -44,26 +45,30 @@ class AuthController extends StateNotifier<AuthState> {
     }
   }
 
-  /// Step 1 of 2: phone + password. Never signs in by itself: returns the one-time-code challenge
-  /// (the server sends the code by SMS; see [verify]).
-  Future<Map<String, dynamic>> login(String phone, String password) =>
-      _api.post('/auth/login', body: {'phone': phone, 'password': password});
-
-  /// Step 1 of 2: create the (pending) account and get the code challenge.
-  Future<Map<String, dynamic>> register(Map<String, dynamic> body) => _api.post('/auth/register', body: body);
-
-  /// Step 2 of 2: the code from the SMS. Only now are tokens issued and the user signed in.
-  Future<void> verify(String purpose, String challengeId, String code) async {
-    final res = await _api.post('/auth/$purpose/verify', body: {'challenge_id': challengeId, 'code': code});
-    await _accept(res);
+  /// Phone + password. Signs in directly (no SMS code). Throws an AppFailure with code
+  /// `password_change_required` after an admin password reset: then call [changePassword].
+  Future<void> login(String phone, String password) async {
+    await _accept(await _api.post('/auth/login', body: {'phone': phone, 'password': password}));
   }
 
-  /// Forgot password, step 1: a code is sent if the number has an account (the answer is the same either way).
-  Future<Map<String, dynamic>> forgotPassword(String phone) => _api.post('/auth/password/forgot', body: {'phone': phone});
+  /// Creates the account. Returns null when it is usable at once (signed in), or the server's message when it
+  /// waits for an admin's approval (no tokens are issued until then).
+  Future<String?> register(Map<String, dynamic> body) async {
+    final res = await _api.post('/auth/register', body: body);
+    if (res['tokens'] is Map<String, dynamic>) {
+      await _accept(res);
+      return null;
+    }
+    return res.str('message', 'Your account is waiting for approval.');
+  }
 
-  /// Forgot password, step 2: the code and the new password. Signs out every session; then sign in normally.
-  Future<void> resetPassword(String challengeId, String code, String newPassword) async {
-    await _api.post('/auth/password/reset', body: {'challenge_id': challengeId, 'code': code, 'new_password': newPassword});
+  /// Sets a new password with the current (or admin-issued temporary) one. Signs out every other device and
+  /// signs in here with a fresh session.
+  Future<void> changePassword(String phone, String currentPassword, String newPassword) async {
+    await _accept(await _api.post(
+      '/auth/password/change',
+      body: {'phone': phone, 'current_password': currentPassword, 'new_password': newPassword},
+    ),);
   }
 
   /// Records that this version of the guided tour was finished or skipped (stored per account on the server).
@@ -71,9 +76,6 @@ class AuthController extends StateNotifier<AuthState> {
     final user = await _api.post('/auth/me/tour', body: {'version': version});
     state = AuthState(AuthStatus.signedIn, user: user);
   }
-
-  /// A new code for the same challenge (cooldown and limits apply on the server).
-  Future<Map<String, dynamic>> resend(String challengeId) => _api.post('/auth/otp/resend', body: {'challenge_id': challengeId});
 
   Future<void> _accept(Map<String, dynamic> res) async {
     final tokens = res.obj('tokens');

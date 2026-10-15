@@ -9,7 +9,7 @@ from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, EmailStr, Field, StringConstraints, field_validator
 
-from app.core.enums import AccessStatus, BuyerType, OtpPurpose, PreferredLanguage, UserRole
+from app.core.enums import AccessStatus, BuyerType, PreferredLanguage, UserRole
 from app.core.phone import normalize_phone
 from app.schemas.base import PatchModel, StrictModel
 
@@ -23,12 +23,27 @@ PASSWORD_MIN_LENGTH = 8
 PASSWORD_MAX_LENGTH = 128
 
 
+# Sign-in is password-only, so the passwords attackers try first are refused for every NEW password (sign-up,
+# change, admin CLI). Compared case-insensitively. Existing passwords keep working until the person changes them.
+COMMON_PASSWORDS = frozenset(
+    {
+        "password1", "password12", "password123", "passw0rd", "passw0rd1", "qwerty123", "qwerty12", "qwerty1234",
+        "abc12345", "abcd1234", "abc123456", "1q2w3e4r", "1q2w3e4r5t", "q1w2e3r4", "a1b2c3d4", "asdf1234",
+        "zxcv1234", "iloveyou1", "welcome1", "welcome123", "admin123", "admin1234", "letmein1", "test1234",
+        "12345678a", "a12345678", "1234567a", "a1234567", "123456789a", "1234qwer", "india123", "india1234",
+        "farmer123", "farmer1234", "kisan123", "harvestique1", "harvestique123",
+    }
+)  # fmt: skip
+
+
 def validate_password_strength(password: str) -> str:
-    """Registration policy: 8-128 chars with at least one letter and one digit."""
+    """New-password policy: 8-128 chars, at least one letter and one digit, not a well-known password."""
     if not PASSWORD_MIN_LENGTH <= len(password) <= PASSWORD_MAX_LENGTH:
         raise ValueError(f"Password must be {PASSWORD_MIN_LENGTH}-{PASSWORD_MAX_LENGTH} characters long")
     if not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
         raise ValueError("Password must contain at least one letter and one digit")
+    if password.lower() in COMMON_PASSWORDS:
+        raise ValueError("This password is too common; choose one that is harder to guess")
     return password
 
 
@@ -85,22 +100,12 @@ class LoginRequest(StrictModel):
     password: Annotated[str, Field(min_length=1, max_length=PASSWORD_MAX_LENGTH)]
 
 
-class OtpVerifyRequest(StrictModel):
-    challenge_id: uuid.UUID
-    code: Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^\d{6,8}$")]
+class PasswordChangeRequest(StrictModel):
+    """Set a new password with the current one (or the temporary one an admin issued). Needs no session, so it also
+    works when sign-in is refused with `password_change_required`."""
 
-
-class OtpResendRequest(StrictModel):
-    challenge_id: uuid.UUID
-
-
-class PasswordForgotRequest(StrictModel):
     phone: PhoneNumber
-
-
-class PasswordResetRequest(StrictModel):
-    challenge_id: uuid.UUID
-    code: Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^\d{6,8}$")]
+    current_password: Annotated[str, Field(min_length=1, max_length=PASSWORD_MAX_LENGTH)]
     new_password: NewPassword
 
 
@@ -164,6 +169,7 @@ class UserRead(BaseModel):
     created_at: datetime
     last_login_at: datetime | None
     phone_verified_at: datetime | None = None
+    must_change_password: bool = False
     tour_version_seen: int = 0
     farmer_profile: FarmerProfileRead | None
     buyer_profile: BuyerProfileRead | None
@@ -181,24 +187,22 @@ class AuthResponse(BaseModel):
     tokens: TokenPair
 
 
-class OtpChallengeOut(BaseModel):
-    """Step 1 of registration or login: a code is on its way. No tokens are issued until it is verified."""
+class RegistrationOut(BaseModel):
+    """Result of a sign-up. `approved`: the account can be used now and `user` + `tokens` are included. `pending`: an
+    admin must approve it first; nothing else is returned (the same answer is given for a number that already has an
+    account, so sign-up does not reveal who is registered)."""
 
-    challenge_id: uuid.UUID
-    purpose: OtpPurpose
-    phone_hint: str = Field(description="The number the code goes to, masked, e.g. +91******3210")
-    code_length: int
-    expires_in: int = Field(description="Seconds until the code expires")
-    resend_after: int = Field(description="Seconds before another code can be requested")
-    attempts_left: int
-    delivery: Literal["sms", "development_console"] = Field(
-        description="development_console: NOTHING was sent by SMS (development servers only)"
-    )
-    dev_code: str | None = Field(
-        default=None,
-        description="DEVELOPMENT ONLY: the code itself, returned because no SMS provider is used. "
-        "Never set in production.",
-    )
+    status: Literal["approved", "pending"]
+    message: str
+    user: UserRead | None = None
+    tokens: TokenPair | None = None
+
+
+class TemporaryPasswordOut(BaseModel):
+    """An admin password reset. The temporary password is shown ONCE, here; it is stored only as a hash."""
+
+    user: UserRead
+    temporary_password: str
     message: str
 
 

@@ -48,33 +48,14 @@ class Settings(BaseSettings):
     password_hash_time_cost: int = Field(default=3, ge=1)
     password_hash_memory_kib: int = Field(default=65536, ge=8)
     password_hash_parallelism: int = Field(default=4, ge=1)
-    # Brute-force protection: N consecutive failures per phone -> locked for the window.
+    # Brute-force protection: N consecutive failures per phone -> locked for the window. Sign-in is password-only
+    # (no SMS code), so a second, daily cap also applies: that many failures per phone within 24 hours lock it until
+    # the oldest of them is a day old. A correct password or an admin password reset clears both.
     login_max_failed_attempts: int = Field(default=5, ge=1)
     login_lockout_minutes: int = Field(default=15, ge=1)
-
-    # --- Phone verification (OTP) ---
-    # Registration and every login need a one-time code sent to the phone. Codes are random, stored only as an
-    # HMAC, expire, allow a few attempts and are rate limited per phone and per client address.
-    #   dev_console    DEVELOPMENT ONLY: nothing is sent; the code is logged and returned in the API response,
-    #                  clearly labelled. Refused in production.
-    #   android_gateway  your own Android phone + SIM sends the SMS (open-source "SMS Gateway for Android" app,
-    #                  local server mode). No SMS company account, but your mobile plan's SMS charges apply.
-    #   disabled       no SMS: registration and login cannot complete (useful only to lock a server down).
-    sms_provider: Literal["dev_console", "android_gateway", "disabled"] = "dev_console"
-    sms_gateway_url: str | None = None  # local: http://192.168.1.50:8080, cloud: https://api.sms-gate.app/3rdparty/v1
-    # Path appended to SMS_GATEWAY_URL: "/message" for the app's Local Server mode, "/messages" for its free Cloud
-    # Server (the phone then needs only mobile data, not the same network as this server).
-    sms_gateway_message_path: str = "/message"
-    sms_gateway_username: str | None = None
-    sms_gateway_password: SecretStr | None = None
-    sms_timeout_seconds: float = Field(default=10.0, gt=0)
-    otp_length: int = Field(default=6, ge=6, le=8)
-    otp_ttl_seconds: int = Field(default=300, ge=60, le=900)
-    otp_max_attempts: int = Field(default=5, ge=1, le=10)
-    otp_resend_cooldown_seconds: int = Field(default=60, ge=10)
-    otp_max_resends: int = Field(default=3, ge=0, le=10)
-    otp_max_sends_per_phone_per_hour: int = Field(default=5, ge=1)
-    otp_max_sends_per_client_per_hour: int = Field(default=20, ge=1)
+    login_max_failed_attempts_per_day: int = Field(default=20, ge=1)
+    # Flood guard: at most this many new accounts per hour across the whole server (sign-ups past it get 429).
+    registrations_max_per_hour: int = Field(default=30, ge=1)
 
     # Tester access: "pending" makes every NEW sign-up wait until an admin approves it (admin app > Testers, or
     # POST /admin/users/{id}/access). Existing accounts are never changed by this setting.
@@ -147,10 +128,11 @@ class Settings(BaseSettings):
                 raise ValueError("JWT_SECRET_KEY must be a strong secret (>= 32 characters) in production")
             if self.debug:
                 raise ValueError("DEBUG must be false in production")
+            if self.new_account_access != "pending":
+                # sign-in is password-only: an admin approving each new account is the identity check
+                raise ValueError("NEW_ACCOUNT_ACCESS must be 'pending' in production (password-only sign-in)")
             if self.prediction_provider == "demo_scripted":
                 raise ValueError("The demo_scripted prediction provider cannot be used in production")
-            if self.sms_provider == "dev_console":
-                raise ValueError("SMS_PROVIDER=dev_console exposes one-time codes and cannot be used in production")
             for name, value in (
                 ("LLM_PROVIDER", self.llm_provider),
                 ("SPEECH_PROVIDER", self.speech_provider),
@@ -162,10 +144,6 @@ class Settings(BaseSettings):
                     raise ValueError(f"{name}=fake returns canned data and cannot be used in production")
         if self.market_price_provider == "data_gov_in" and not self.data_gov_in_api_key:
             raise ValueError("MARKET_PRICE_PROVIDER=data_gov_in needs DATA_GOV_IN_API_KEY (free key from data.gov.in)")
-        if self.sms_provider == "android_gateway" and not (
-            self.sms_gateway_url and self.sms_gateway_username and self.sms_gateway_password
-        ):
-            raise ValueError("SMS_PROVIDER=android_gateway needs SMS_GATEWAY_URL, _USERNAME and _PASSWORD")
         return self
 
 

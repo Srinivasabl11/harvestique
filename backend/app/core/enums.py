@@ -21,6 +21,8 @@ class AccessStatus(StrEnum):
 
 
 class OtpPurpose(StrEnum):
+    """History only: the purpose column of the unused otp_challenges table (SMS codes are no longer sent)."""
+
     REGISTER = "register"
     LOGIN = "login"
     PASSWORD_RESET = "password_reset"  # noqa: S105 - an OTP purpose, not a secret

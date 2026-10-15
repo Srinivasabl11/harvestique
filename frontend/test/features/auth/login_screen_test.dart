@@ -25,7 +25,7 @@ void main() {
     await tester.pump();
     expect(find.text('Enter your mobile number'), findsOneWidget);
     expect(find.text('Required'), findsOneWidget); // the password
-    expect(find.textContaining('one-time code'), findsOneWidget);
+    expect(find.textContaining('one-time code'), findsNothing); // no SMS step any more
   });
 
   group('phone numbers with a country code', () {

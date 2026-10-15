@@ -8,7 +8,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.core.container import Container
-from app.repositories.auth import LoginAttemptRepository, OtpChallengeRepository, RefreshTokenRepository
+from app.repositories.auth import LoginAttemptRepository, RefreshTokenRepository
 from app.repositories.crops import CropCycleRepository, CropRepository
 from app.repositories.engagement import EngagementRepository
 from app.repositories.farm_records import ActivityRepository, ExpenseRepository, ObservationRepository
@@ -55,8 +55,6 @@ def build_auth_service(session: Session, container: Container) -> AuthService:
         codec=container.tokens,
         clock=container.clock,  # read per call so tests can swap the clock
         settings=container.settings,
-        otps=OtpChallengeRepository(session),
-        sms=container.sms,
     )
 
 

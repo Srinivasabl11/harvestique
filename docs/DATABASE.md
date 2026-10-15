@@ -700,6 +700,7 @@ Constraints: CHECK `ck_reminders_recurrence`: `reminders.recurrence IN (__[POSTC
 | `last_login_at` | DATETIME | yes |  |
 | `phone_verified_at` | DATETIME | yes |  |
 | `registration_pending` | BOOLEAN | no |  |
+| `must_change_password` | BOOLEAN | no |  |
 | `tour_version_seen` | INTEGER | no |  |
 | `id` | CHAR(32) | no | PK |
 | `created_at` | DATETIME | no |  |

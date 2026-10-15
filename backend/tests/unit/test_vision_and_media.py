@@ -287,4 +287,10 @@ def test_demo_predictor_is_refused_in_production():
     from app.core.config import Settings
 
     with pytest.raises(ValidationError, match="demo_scripted"):
-        Settings(_env_file=None, app_env="production", jwt_secret_key="x" * 40, prediction_provider="demo_scripted")  # type: ignore[call-arg]
+        Settings(  # type: ignore[call-arg]
+            _env_file=None,
+            app_env="production",
+            jwt_secret_key="x" * 40,
+            new_account_access="pending",
+            prediction_provider="demo_scripted",
+        )

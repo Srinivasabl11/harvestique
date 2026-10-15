@@ -21,11 +21,8 @@ def settings() -> Settings:
         weather_provider="fake",
         llm_provider="fake",
         notification_channel="fake",
-        # The labelled development OTP mode: the API returns the code, so fixtures can finish sign-up and sign-in.
-        # Limits are raised for the many accounts fixtures create; tests/integration/test_auth_otp.py tests them.
-        sms_provider="dev_console",
-        otp_max_sends_per_phone_per_hour=1000,
-        otp_max_sends_per_client_per_hour=100000,
+        # Fixtures create many accounts; the sign-up flood guard is tested on its own (test_auth_registration.py).
+        registrations_max_per_hour=100000,
     )
 
 
@@ -125,11 +122,8 @@ def db_settings(migrated_db: str) -> Settings:
         weather_provider="fake",
         llm_provider="fake",
         notification_channel="fake",
-        # The labelled development OTP mode: the API returns the code, so fixtures can finish sign-up and sign-in.
-        # Limits are raised for the many accounts fixtures create; tests/integration/test_auth_otp.py tests them.
-        sms_provider="dev_console",
-        otp_max_sends_per_phone_per_hour=1000,
-        otp_max_sends_per_client_per_hour=100000,
+        # Fixtures create many accounts; the sign-up flood guard is tested on its own (test_auth_registration.py).
+        registrations_max_per_hour=100000,
     )
 
 
@@ -191,37 +185,25 @@ def bearer(access_token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {access_token}"}
 
 
-def finish_otp(client: TestClient, challenge: dict, purpose: str) -> dict:
-    """Step 2 of registration or login. The code is the development code from step 1, or - when a test installed
-    a RecordingSms (a real-provider setup) - the code that provider delivered. Returns {user, tokens}."""
-    code = challenge.get("dev_code")
-    if code is None:
-        from app.providers.sms.providers import RecordingSms
-
-        sms = client.app.state.container.sms
-        assert isinstance(sms, RecordingSms), challenge
-        code = sms.sent[-1][1].split("code: ")[1][:6]
-    r = client.post(f"/api/v1/auth/{purpose}/verify", json={"challenge_id": challenge["challenge_id"], "code": code})
-    assert r.status_code in (200, 201), r.text
+def register_and_sign_in(client: TestClient, body: dict) -> dict:
+    """Sign-up on a server with open sign-up (the test default): the account is usable at once. Returns
+    {status, message, user, tokens}."""
+    r = client.post("/api/v1/auth/register", json=body)
+    assert r.status_code == 201, r.text
     return r.json()
 
 
-def register_and_verify(client: TestClient, body: dict) -> dict:
-    r = client.post("/api/v1/auth/register", json=body)
-    assert r.status_code == 202, r.text
-    return finish_otp(client, r.json(), "register")
-
-
-def login_and_verify(client: TestClient, phone: str, password: str) -> dict:
+def sign_in(client: TestClient, phone: str, password: str) -> dict:
+    """Phone + password sign-in. Returns {user, tokens}."""
     r = client.post("/api/v1/auth/login", json={"phone": phone, "password": password})
-    assert r.status_code == 202, r.text
-    return finish_otp(client, r.json(), "login")
+    assert r.status_code == 200, r.text
+    return r.json()
 
 
 @pytest.fixture
 def register_farmer(db_client: TestClient):
     def _register(phone: str = "9876543210", **overrides: object) -> dict:
-        return register_and_verify(db_client, farmer_body(phone, **overrides))
+        return register_and_sign_in(db_client, farmer_body(phone, **overrides))
 
     return _register
 
@@ -229,7 +211,7 @@ def register_farmer(db_client: TestClient):
 @pytest.fixture
 def register_buyer(db_client: TestClient):
     def _register(phone: str = "9123456780", **overrides: object) -> dict:
-        return register_and_verify(db_client, buyer_body(phone, **overrides))
+        return register_and_sign_in(db_client, buyer_body(phone, **overrides))
 
     return _register
 
@@ -253,7 +235,7 @@ def make_admin(db_container: Container):
 @pytest.fixture
 def admin_tokens(db_client: TestClient, make_admin) -> dict:
     make_admin()
-    return login_and_verify(db_client, "+919000000001", "AdminPass123")["tokens"]
+    return sign_in(db_client, "+919000000001", "AdminPass123")["tokens"]
 
 
 # ======================================================================
@@ -452,7 +434,7 @@ def harvest(client: TestClient, actor: Actor, cycle_id: str, quantity: float, da
 
 def relogin(client: TestClient, phone: str = "9876543210") -> dict[str, str]:
     """Fresh auth headers after moving a FixedClock forward (old access tokens correctly expire)."""
-    return bearer(login_and_verify(client, phone, PASSWORD)["tokens"]["access_token"])
+    return bearer(sign_in(client, phone, PASSWORD)["tokens"]["access_token"])
 
 
 # ======================================================================

@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import text
 
 from app.cli.create_admin import PASSWORD_ENV, main
-from tests.conftest import bearer, login_and_verify
+from tests.conftest import bearer, sign_in
 
 pytestmark = pytest.mark.integration
 
@@ -16,7 +16,7 @@ def test_cli_creates_a_working_admin(db_client, db_container, monkeypatch, capsy
     assert main(["--phone", "9000000042", "--name", "Ops Admin", "--email", "ops@example.com"], db_container) == 0
     assert "Created admin" in capsys.readouterr().out
 
-    signed_in = login_and_verify(db_client, "+919000000042", "AdminPass123")  # admins also need the SMS code
+    signed_in = sign_in(db_client, "+919000000042", "AdminPass123")
     assert signed_in["user"]["role"] == "admin"
     assert signed_in["user"]["farmer_profile"] is None and signed_in["user"]["buyer_profile"] is None
     token = signed_in["tokens"]["access_token"]

@@ -112,7 +112,7 @@ UserServiceDep = Annotated[UserService, Depends(get_user_service)]
 
 # auto_error=False: we raise our own AuthenticationError so 401s use the standard error envelope.
 bearer_scheme = HTTPBearer(
-    auto_error=False, description="Access token from /auth/login/verify or /auth/register/verify"
+    auto_error=False, description="Access token from /auth/login (or /auth/register, /auth/password/change)"
 )
 
 

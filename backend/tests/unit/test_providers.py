@@ -72,26 +72,6 @@ def test_hosted_ollama_gets_the_api_key_and_local_does_not():
     assert "Authorization" not in _ollama_client(Settings(_env_file=None), 5.0).headers
 
 
-@pytest.mark.parametrize(
-    ("base", "path", "url"),
-    [
-        ("http://192.168.1.50:8080", "/message", "http://192.168.1.50:8080/message"),
-        ("https://api.sms-gate.app/3rdparty/v1/", "messages", "https://api.sms-gate.app/3rdparty/v1/messages"),
-    ],
-)
-def test_android_gateway_posts_to_the_configured_path(base, path, url):
-    import httpx
-
-    from app.providers.sms.providers import AndroidGatewaySms
-
-    seen = []
-    client = httpx.Client(transport=httpx.MockTransport(lambda r: seen.append(r) or httpx.Response(202)))
-    sms = AndroidGatewaySms(client=client, base_url=base, username="u", password="p", message_path=path)
-    sms.send("+919900000000", "x")
-    assert str(seen[0].url) == url
-    assert seen[0].headers["Authorization"].startswith("Basic ")
-
-
 def test_ollama_cloud_without_a_key_is_reported_off_not_ready():
     from app.core.config import Settings
     from app.providers.llm.fake import DisabledLLMProvider

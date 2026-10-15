@@ -1,4 +1,4 @@
-"""POST /auth/register"""
+"""POST /auth/register on a server with open sign-up (pending approval: test_tester_access.py)."""
 
 from __future__ import annotations
 
@@ -12,12 +12,7 @@ pytestmark = pytest.mark.integration
 
 
 def register(client, body):
-    """Both steps: step 1 (details + code sent) and, if it was accepted, step 2 with the development code."""
-    r = client.post(URL, json=body)
-    if r.status_code != 202:
-        return r
-    ch = r.json()
-    return client.post(f"{URL}/verify", json={"challenge_id": ch["challenge_id"], "code": ch["dev_code"]})
+    return client.post(URL, json=body)
 
 
 def test_register_farmer(db_client):
@@ -80,16 +75,22 @@ def test_refresh_token_is_stored_only_as_hash(db_client, db_container):
     assert stored != raw and len(stored) == 64
 
 
-def test_an_already_registered_phone_is_not_revealed_and_cannot_be_taken_over(db_client):
+def test_an_already_registered_phone_cannot_be_taken_over(db_client, db_container):
     assert register(db_client, farmer_body("9876543210")).status_code == 201
-    fresh = db_client.post(URL, json=buyer_body("9123456780")).json()
-    again = db_client.post(URL, json=buyer_body("+91 98765-43210"))  # same number, another format
-    assert again.status_code == 202  # same answer as for a new number: no account enumeration
-    taken = again.json()
-    assert set(taken) == set(fresh) and taken["dev_code"] is None  # nothing is sent for an existing account
-    for guess in ("000000", "123456"):
-        r = db_client.post(f"{URL}/verify", json={"challenge_id": taken["challenge_id"], "code": guess})
-        assert r.status_code == 401 and r.json()["error"]["code"] == "invalid_otp"
+    again = register(db_client, buyer_body("+91 98765-43210", password="Other4567"))  # same number, another format
+    assert again.status_code == 409 and again.json()["error"]["code"] == "phone_already_registered"
+    assert "tokens" not in again.text
+    with db_container.engine.connect() as conn:
+        assert conn.scalar(text("SELECT role FROM users")) == "farmer"  # the first account is untouched
+
+
+def test_sign_ups_are_capped_per_hour_across_the_server(db_client, db_container):
+    db_container.settings = db_container.settings.model_copy(update={"registrations_max_per_hour": 2})
+    assert register(db_client, farmer_body("9876543210")).status_code == 201
+    assert register(db_client, farmer_body("9876543211")).status_code == 201
+    r = register(db_client, farmer_body("9876543212"))
+    assert r.status_code == 429 and r.json()["error"]["code"] == "registration_rate_limited"
+    assert r.headers["retry-after"] == "3600"
 
 
 def test_duplicate_email_conflicts_case_insensitively(db_client):
@@ -111,7 +112,9 @@ def _errors(response):
     return {e["field"]: e for e in body["error"]["details"]["errors"]}
 
 
-@pytest.mark.parametrize("password", ["short1", "nodigitshere", "12345678", "x" * 129])
+@pytest.mark.parametrize(
+    "password", ["short1", "nodigitshere", "12345678", "x" * 129, "Password1", "Harvestique1", "ABCD1234"]
+)
 def test_weak_password_rejected_and_never_echoed(db_client, password):
     r = register(db_client, farmer_body(password=password))
     assert "password" in _errors(r)

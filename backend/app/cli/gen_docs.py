@@ -23,9 +23,10 @@ API_INTRO = """# API reference
 Generated from the running application by `python -m app.cli.gen_docs` (do not edit by hand).
 Base path `/api/v1`. Interactive docs: `/docs` (Swagger UI) and `/openapi.json` when the server runs.
 
-* **Auth:** two steps. `/auth/register` or `/auth/login` sends a one-time SMS code (202, no tokens);
-  `/auth/register/verify` or `/auth/login/verify` checks it and returns `Authorization: Bearer <access token>`;
-  refresh with `/auth/refresh`.
+* **Auth:** phone + password. `/auth/login` returns the tokens; send `Authorization: Bearer <access token>` and
+  refresh with `/auth/refresh`. `/auth/register` signs in at once (201) or, on a server where new accounts wait for
+  an admin, answers 202 without tokens. After an admin password reset, `/auth/login` answers 403
+  `password_change_required` until `/auth/password/change` sets a new password.
 * **Roles** below are the ones the route actually enforces (taken from its dependencies): `public`, `any signed-in`,
   or a role list. Resource routes additionally check ownership and answer **404** for another user's resource.
 * **Errors** use one envelope: `{"error": {"code", "message", "details"}}`; 401 not signed in, 403 wrong role,

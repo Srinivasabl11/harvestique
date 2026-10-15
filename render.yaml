@@ -32,25 +32,16 @@ services:
         value: "2"
       - key: JWT_SECRET_KEY
         generateValue: true
-      # Tester access: new sign-ups wait until an admin approves them (admin app > Testers). Existing accounts keep
-      # their access. Set to "approved" for open sign-up.
+      # Sign-in is phone + password (no SMS codes). New sign-ups wait until an admin approves them (admin app >
+      # Testers), which is how a tester's identity is checked; forgotten passwords are reset there too (temporary
+      # password). Existing accounts keep their access. Do NOT set "approved" here: with password-only sign-in,
+      # open sign-up would let anyone use the app.
       - key: NEW_ACCOUNT_ACCESS
         value: pending
       - key: WEATHER_PROVIDER
         value: open_meteo
       - key: MARKET_PRICE_PROVIDER # set to data_gov_in and add DATA_GOV_IN_API_KEY for live mandi prices
         value: disabled
-      # SMS one-time codes: "SMS Gateway for Android" app on a phone with a SIM, using the app's free Cloud Server.
-      - key: SMS_PROVIDER
-        value: android_gateway
-      - key: SMS_GATEWAY_URL
-        value: https://api.sms-gate.app/3rdparty/v1
-      - key: SMS_GATEWAY_MESSAGE_PATH
-        value: /messages
-      - key: SMS_GATEWAY_USERNAME
-        sync: false
-      - key: SMS_GATEWAY_PASSWORD
-        sync: false
       # AI assistant + crop-photo check: Ollama Cloud (same API as local Ollama). Without a key both degrade to the
       # non-AI paths (tool answers, colour measurements) and say so; nothing breaks.
       - key: LLM_PROVIDER

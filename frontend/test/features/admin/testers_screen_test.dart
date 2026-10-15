@@ -40,6 +40,13 @@ class _FakeApi extends ApiClient {
   @override
   Future<Map<String, dynamic>> post(String path, {Object? body, String? idempotencyKey}) async {
     posts.add((path, body));
+    if (path.endsWith('/password-reset')) {
+      return {
+        'user': {'id': 'u1', 'must_change_password': true},
+        'temporary_password': 'k7mp-2qxa-9rtd',
+        'message': 'Give this temporary password to the person privately. It is shown only now.',
+      };
+    }
     return {'id': 'u1', 'access_status': 'approved'};
   }
 }
@@ -91,5 +98,39 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.queries.last, 'suspended');
     expect(find.text('No accounts here.'), findsOneWidget);
+  });
+
+  testWidgets('resetting a password asks first, then shows the temporary password once', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final api = _FakeApi();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [apiProvider.overrideWithValue(api), tokenStoreProvider.overrideWithValue(_NoTokens())],
+        child: const MaterialApp(home: Scaffold(body: TestersScreen())),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Change access'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reset password'));
+    await tester.pumpAndSettle();
+    expect(find.text('Reset password?'), findsOneWidget);
+    expect(find.textContaining('checking that the request really comes from Ravi Kumar'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(api.posts, isEmpty); // nothing happens without confirmation
+
+    await tester.tap(find.byTooltip('Change access'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reset password'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reset'));
+    await tester.pumpAndSettle();
+    expect(api.posts.single.$1, '/admin/users/u1/password-reset');
+    expect(find.text('Temporary password for Ravi Kumar'), findsOneWidget);
+    expect(find.text('k7mp-2qxa-9rtd'), findsOneWidget);
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    expect(find.text('k7mp-2qxa-9rtd'), findsNothing); // not kept on screen afterwards
   });
 }

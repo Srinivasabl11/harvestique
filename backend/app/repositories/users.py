@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from sqlalchemy import func, select
 
 from app.core.enums import AccessStatus, UserRole
@@ -31,3 +33,8 @@ class UserRepository(SQLAlchemyRepository[User]):
             count_stmt = count_stmt.where(User.access_status == access)
         items = list(self.session.scalars(stmt.order_by(User.created_at, User.id).limit(limit).offset(offset)))
         return items, self.session.scalar(count_stmt) or 0
+
+    def count_sign_ups_since(self, since: datetime) -> int:
+        """Farmer and buyer accounts created after `since` (admins are created by operators, not sign-up)."""
+        stmt = select(func.count()).where(User.created_at > since, User.role != UserRole.ADMIN)
+        return self.session.scalar(stmt) or 0

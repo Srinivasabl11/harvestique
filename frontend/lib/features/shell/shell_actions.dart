@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/network/api_client.dart';
 import '../../core/util/json.dart';
 import '../auth/auth_controller.dart';
+import '../auth/change_password_screen.dart';
 import '../help/help_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../system_status/presentation/system_status_screen.dart';
@@ -62,6 +63,10 @@ class AccountMenu extends ConsumerWidget {
         switch (v) {
           case 'help':
             unawaited(Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const HelpScreen())));
+          case 'password':
+            unawaited(Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => ChangePasswordScreen(phone: auth.phone)),
+            ),);
           case 'status':
             unawaited(Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SystemStatusScreen())));
           case 'logout':
@@ -81,6 +86,7 @@ class AccountMenu extends ConsumerWidget {
         ],
         ...extra,
         const PopupMenuItem(value: 'help', child: Text('Help & guide')),
+        const PopupMenuItem(value: 'password', child: Text('Change password')),
         const PopupMenuItem(value: 'status', child: Text('Server status')),
         const PopupMenuItem(value: 'logout', child: Text('Sign out')),
       ],

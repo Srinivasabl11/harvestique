@@ -1,4 +1,4 @@
-"""Refresh-token (session), login-attempt and one-time-code persistence."""
+"""Refresh-token (session) and login-attempt persistence."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from datetime import datetime
 from sqlalchemy import exists, func, select, update
 from sqlalchemy.orm import Session
 
-from app.models.auth import LoginAttempt, OtpChallenge, RefreshToken
+from app.models.auth import LoginAttempt, RefreshToken
 
 
 class RefreshTokenRepository:
@@ -60,59 +60,21 @@ class LoginAttemptRepository:
         self.session.add(LoginAttempt(phone=phone, succeeded=succeeded, attempted_at=at))
         self.session.flush()
 
-    def consecutive_failures(self, phone: str, *, since: datetime) -> tuple[int, datetime | None]:
+    def consecutive_failures(self, phone: str, *, since: datetime) -> tuple[int, datetime | None, datetime | None]:
         """Failures after `since` and after the phone's last successful login.
 
-        Returns (count, time of the most recent failure).
+        Returns (count, time of the oldest such failure, time of the most recent one).
         """
         last_success = (
             select(func.max(LoginAttempt.attempted_at))
             .where(LoginAttempt.phone == phone, LoginAttempt.succeeded.is_(True))
             .scalar_subquery()
         )
-        stmt = select(func.count(), func.max(LoginAttempt.attempted_at)).where(
+        stmt = select(func.count(), func.min(LoginAttempt.attempted_at), func.max(LoginAttempt.attempted_at)).where(
             LoginAttempt.phone == phone,
             LoginAttempt.succeeded.is_(False),
             LoginAttempt.attempted_at > since,
             LoginAttempt.attempted_at > func.coalesce(last_success, since),
         )
-        count, latest = self.session.execute(stmt).one()
-        return int(count), latest
-
-
-class OtpChallengeRepository:
-    def __init__(self, session: Session) -> None:
-        self.session = session
-
-    def add(self, challenge: OtpChallenge) -> OtpChallenge:
-        self.session.add(challenge)
-        self.session.flush()
-        return challenge
-
-    def get_for_update(self, challenge_id: uuid.UUID) -> OtpChallenge | None:
-        """Row-locked: concurrent guesses against one challenge are counted one at a time."""
-        return self.session.scalar(select(OtpChallenge).where(OtpChallenge.id == challenge_id).with_for_update())
-
-    def sends_since(self, *, since: datetime, phone: str | None = None, client: str | None = None) -> int:
-        """Codes sent (first sends and resends) to a phone, or requested from a client address, since `since`.
-
-        Decoys (registrations of an existing number) send no SMS, so they do not count against that PHONE - otherwise
-        anyone could block a real user's sign-in by "registering" their number - but they do count against the
-        requesting CLIENT."""
-        stmt = select(func.coalesce(func.sum(OtpChallenge.sends), 0)).where(OtpChallenge.created_at > since)
-        if phone is not None:
-            stmt = stmt.where(OtpChallenge.phone == phone, OtpChallenge.decoy.is_(False))
-        if client is not None:
-            stmt = stmt.where(OtpChallenge.client == client)
-        return int(self.session.scalar(stmt) or 0)
-
-    def last_open_send_at(self, phone: str, max_attempts: int) -> datetime | None:
-        """When a still-usable code was last sent to this phone. A verified code, or one whose wrong attempts are
-        used up, does not hold up the next one."""
-        stmt = select(func.max(OtpChallenge.last_sent_at)).where(
-            OtpChallenge.phone == phone,
-            OtpChallenge.consumed_at.is_(None),
-            OtpChallenge.decoy.is_(False),
-            OtpChallenge.attempts < max_attempts,
-        )
-        return self.session.scalar(stmt)
+        count, earliest, latest = self.session.execute(stmt).one()
+        return int(count), earliest, latest

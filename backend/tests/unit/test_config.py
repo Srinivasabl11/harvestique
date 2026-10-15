@@ -19,10 +19,7 @@ PRODUCTION = {
     "app_env": "production",
     "jwt_secret_key": "x" * 48,
     "weather_provider": "open_meteo",
-    "sms_provider": "android_gateway",
-    "sms_gateway_url": "http://192.168.1.50:8080",
-    "sms_gateway_username": "sms",
-    "sms_gateway_password": "a-long-gateway-password",
+    "new_account_access": "pending",
 }
 
 
@@ -34,7 +31,7 @@ def test_production_accepts_real_secret():
 @pytest.mark.parametrize(
     "override",
     [
-        {"sms_provider": "dev_console"},  # would expose one-time codes
+        {"new_account_access": "approved"},  # open sign-up without SMS: anyone could use the app
         {"llm_provider": "fake"},  # canned "AI" answers
         {"speech_provider": "fake"},
         {"weather_provider": "fake"},  # simulated weather shown as real
@@ -46,13 +43,12 @@ def test_production_refuses_development_and_fake_providers(override):
         Settings(_env_file=None, **{**PRODUCTION, **override})
 
 
-def test_development_defaults_to_the_labelled_console_otp_mode():
-    assert Settings(_env_file=None).sms_provider == "dev_console"
-
-
-def test_android_gateway_needs_its_address_and_credentials():
-    with pytest.raises(ValidationError, match="SMS_GATEWAY_URL"):
-        Settings(_env_file=None, sms_provider="android_gateway", sms_gateway_url="http://phone:8080")
+def test_stale_sms_settings_are_ignored_and_auth_limits_have_safe_defaults():
+    """Old SMS_* variables left on a server must not stop it from starting (SMS sign-in codes were removed)."""
+    s = Settings(_env_file=None, **PRODUCTION, sms_provider="android_gateway", sms_gateway_password="x")
+    assert not hasattr(s, "sms_provider")
+    limits = (s.login_max_failed_attempts, s.login_max_failed_attempts_per_day, s.registrations_max_per_hour)
+    assert limits == (5, 20, 30)
 
 
 @pytest.mark.parametrize(

@@ -10,7 +10,7 @@ from app.cli.seed_crops import seed_if_empty, seed_payloads
 from app.core.config import Settings
 from app.core.container import build_container
 from app.main import create_app
-from tests.conftest import register_and_verify
+from tests.conftest import register_and_sign_in
 
 pytestmark = pytest.mark.integration
 N = len(seed_payloads())
@@ -44,7 +44,7 @@ def test_server_startup_seeds_an_empty_catalog_and_farmers_see_crops(
     container = build_container(settings)
     with TestClient(create_app(settings=settings, container=container)) as client:
         assert crop_count(container) == N
-        reg = register_and_verify(
+        reg = register_and_sign_in(
             client,
             {
                 "role": "farmer",

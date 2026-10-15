@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/network/api_client.dart';
@@ -188,8 +189,9 @@ class _HubsScreenState extends ConsumerState<HubsScreen> {
   }
 }
 
-/// Tester access: approve new sign-ups, suspend (sessions kept) or revoke (signed out) individual accounts.
-/// The server enforces the decision on every request; this screen only asks for it.
+/// Tester access: approve new sign-ups, suspend (sessions kept) or revoke (signed out) individual accounts, and
+/// reset a forgotten password (one-time temporary password). The server enforces every decision; this screen only
+/// asks for it.
 class TestersScreen extends ConsumerStatefulWidget {
   const TestersScreen({super.key});
 
@@ -205,6 +207,7 @@ class _TestersScreenState extends ConsumerState<TestersScreen> {
   Key _key = UniqueKey();
 
   Future<void> _set(Map<String, dynamic> user, String status) async {
+    if (status == 'reset') return _resetPassword(user);
     if (status == 'revoked') {
       final ok = await showDialog<bool>(
         context: context,
@@ -224,6 +227,58 @@ class _TestersScreenState extends ConsumerState<TestersScreen> {
       context,
       () => api.post('/admin/users/${user.str('id')}/access', body: {'status': status}),
       success: '${user.str('full_name')}: ${_done[status]}',
+    );
+    if (mounted) setState(() => _key = UniqueKey());
+  }
+
+  /// Sign-in has no SMS step, so check who is asking (e.g. call their number) before resetting.
+  Future<void> _resetPassword(Map<String, dynamic> user) async {
+    final name = user.str('full_name');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset password?'),
+        content: Text(
+          'Only do this after checking that the request really comes from $name (for example by calling '
+          '${user.str('phone')}). They are signed out on every phone and get a temporary password, which they '
+          'must replace at their next sign-in.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Reset')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    Map<String, dynamic>? out;
+    await runAction(context, () async {
+      out = await ref.read(apiProvider).post('/admin/users/${user.str('id')}/password-reset');
+    });
+    final result = out;
+    if (result == null || !mounted) return;
+    final temporary = result.str('temporary_password');
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Text('Temporary password for $name'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SelectableText(temporary, style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 12),
+            Text(result.str('message')),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Clipboard.setData(ClipboardData(text: temporary)),
+            child: const Text('Copy'),
+          ),
+          FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Done')),
+        ],
+      ),
     );
     if (mounted) setState(() => _key = UniqueKey());
   }
@@ -265,7 +320,10 @@ class _TestersScreenState extends ConsumerState<TestersScreen> {
                     child: ListTile(
                       leading: Icon(u.str('role') == 'buyer' ? Icons.storefront_outlined : Icons.agriculture_outlined),
                       title: Text(u.str('full_name')),
-                      subtitle: Text('${u.str('role')} · ${u.str('phone')}\nJoined ${dateTime(u.str('created_at'))}'),
+                      subtitle: Text(
+                        '${u.str('role')} · ${u.str('phone')}\nJoined ${dateTime(u.str('created_at'))}'
+                        '${u.boolVal('must_change_password') ? ' · temporary password not yet changed' : ''}',
+                      ),
                       isThreeLine: true,
                       trailing: u.str('role') == 'admin'
                           ? null
@@ -275,6 +333,7 @@ class _TestersScreenState extends ConsumerState<TestersScreen> {
                               itemBuilder: (_) => [
                                 for (final a in _actions.entries)
                                   if (a.key != u.str('access_status')) PopupMenuItem(value: a.key, child: Text(a.value)),
+                                const PopupMenuItem(value: 'reset', child: Text('Reset password')),
                               ],
                             ),
                     ),

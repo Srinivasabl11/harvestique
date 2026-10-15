@@ -27,8 +27,6 @@ from app.providers.notifications.base import NotificationChannel
 from app.providers.notifications.fake import FakeNotificationChannel, InAppNotificationChannel
 from app.providers.prediction.base import PredictionProvider
 from app.providers.prediction.demo import DemoScriptedPredictor
-from app.providers.sms.base import SmsSender
-from app.providers.sms.providers import AndroidGatewaySms, DevConsoleSms, DisabledSms
 from app.providers.speech.device import FakeSpeech, OnDeviceSpeech
 from app.providers.vision.base import ColourHeuristicClassifier, CropHealthClassifier
 from app.providers.vision.ollama import OllamaVisionClassifier
@@ -126,18 +124,3 @@ def build_crop_health_classifier(settings: Settings) -> CropHealthClassifier:
             fallback=ColourHeuristicClassifier(),
         )
     return ColourHeuristicClassifier()
-
-
-def build_sms_sender(settings: Settings, http: httpx.Client | None = None) -> SmsSender:
-    if settings.sms_provider == "dev_console":
-        return DevConsoleSms()
-    if settings.sms_provider == "android_gateway":
-        assert settings.sms_gateway_url and settings.sms_gateway_username and settings.sms_gateway_password
-        return AndroidGatewaySms(
-            client=http or httpx.Client(timeout=settings.sms_timeout_seconds),
-            base_url=settings.sms_gateway_url,
-            username=settings.sms_gateway_username,
-            password=settings.sms_gateway_password.get_secret_value(),
-            message_path=settings.sms_gateway_message_path,
-        )
-    return DisabledSms()

@@ -27,7 +27,6 @@ from app.composition import build_auth_service
 from app.core.config import get_settings
 from app.core.container import Container, build_container
 from app.providers.prediction.demo import DemoScriptedPredictor
-from app.providers.sms.providers import DevConsoleSms
 from app.providers.weather.fake import FakeWeatherProvider
 from app.schemas.auth import AdminCreateRequest
 
@@ -66,22 +65,11 @@ def run_demo(client: Any, container: Container, log: Callable[[str], None] = pri
     def d(n: int) -> str:
         return (today + timedelta(days=n)).isoformat()
 
-    def verified(challenge: dict[str, Any], purpose: str) -> dict[str, Any]:
-        """Step 2 of sign-up / sign-in. The demo runs with the development OTP sender, which returns the code."""
-        if not challenge.get("dev_code"):
-            raise DemoError("the demo needs the development OTP mode (no SMS is ever sent to demo numbers)")
-        body = {"challenge_id": challenge["challenge_id"], "code": challenge["dev_code"]}
-        done: dict[str, Any] = _ok(
-            client.post(f"{API}/auth/{purpose}/verify", json=body), 201 if purpose == "register" else 200
-        )
-        return done
-
     def register(body: dict[str, Any]) -> None:
-        verified(_ok(client.post(f"{API}/auth/register", json=body), 202), "register")
+        _ok(client.post(f"{API}/auth/register", json=body), 201)  # the demo server keeps open sign-up
 
     def login(phone: str) -> dict[str, str]:
-        challenge = _ok(client.post(f"{API}/auth/login", json={"phone": phone, "password": PASSWORD}), 202)
-        tokens = verified(challenge, "login")["tokens"]
+        tokens = _ok(client.post(f"{API}/auth/login", json={"phone": phone, "password": PASSWORD}))["tokens"]
         return {"Authorization": f"Bearer {tokens['access_token']}"}
 
     # 1. accounts, crop, hub ------------------------------------------------------------------------------
@@ -369,11 +357,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true", help="print the summary as JSON")
     args = parser.parse_args(argv)
     # The scenario creates its own scripted crop (step 1); the startup catalog seed would make that a 409.
-    settings = get_settings().model_copy(update={"seed_crop_catalog_on_startup": False})
+    # Open sign-up: the demo accounts are used at once, without an admin approving each one.
+    settings = get_settings().model_copy(
+        update={"seed_crop_catalog_on_startup": False, "new_account_access": "approved"}
+    )
     container = build_container(settings)
     container.predictor = DemoScriptedPredictor()  # scripted, labelled SIMULATED
     container.weather = FakeWeatherProvider()  # deterministic offline weather for a repeatable demo
-    container.sms = DevConsoleSms()  # demo numbers are made up: never send real SMS to them
     try:
         if args.reset:
             reset_database(container)

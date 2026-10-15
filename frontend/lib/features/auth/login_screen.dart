@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/errors/app_failure.dart';
+import '../../core/network/api_client.dart';
 import '../../core/widgets/common.dart';
 import 'auth_controller.dart';
-import 'forgot_password_screen.dart';
-import 'otp_screen.dart';
+import 'change_password_screen.dart';
 import 'phone.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -34,14 +35,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _submit() async {
     if (!_form.currentState!.validate()) return;
     setState(() => _busy = true);
-    Map<String, dynamic>? challenge;
+    final phone = e164(_country, _phone.text);
+    var mustChange = false;
     await runAction(context, () async {
-      challenge = await ref.read(authProvider.notifier).login(e164(_country, _phone.text), _password.text);
+      try {
+        await ref.read(authProvider.notifier).login(phone, _password.text);
+        // signed in: the router moves on to the home screen
+      } catch (e) {
+        final f = e is AppFailure ? e : mapDioError(e);
+        if (f.code != 'password_change_required') throw f;
+        mustChange = true; // an admin reset the password: the temporary one must be replaced first
+      }
     });
     if (!mounted) return;
     setState(() => _busy = false);
-    if (challenge != null) context.go(OtpScreen.routePath, extra: challenge);
+    if (mustChange) context.go(ChangePasswordScreen.routePath, extra: phone);
   }
+
+  Future<void> _forgot() => showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Forgot your password?'),
+          content: const Text(
+            'Ask the Harvestique team to reset it. They will check that it is really you and give you a '
+            'temporary password. Sign in with it and you will be asked to choose a new password.',
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -84,13 +105,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ],
                   ),
                   FormText(controller: _password, label: 'Password', obscure: true, validator: requiredText),
-                  const Text('After your password we send a one-time code to your phone.', style: TextStyle(fontSize: 12)),
                   const SizedBox(height: 16),
                   FilledButton(onPressed: _busy ? null : _submit, child: Text(_busy ? 'Signing in…' : 'Sign in')),
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
-                      onPressed: () => context.go(ForgotPasswordScreen.routePath),
+                      onPressed: _forgot,
                       child: const Text('Forgot password?'),
                     ),
                   ),

@@ -53,7 +53,8 @@ Hosted production (Render + Neon, free tier) and the shareable release APK: [doc
 - **Completion pass (2026-10-10)**:
   - the income planner workflow in the app;
   - the voice-first Ask Harvestique assistant (expenses and plans, follow-ups, local Ollama, confirmations);
-  - phone verification by one-time SMS code for registration and every login.
+  - phone verification by one-time SMS code for registration and every login (removed on 2026-10-15: sign-in is
+    now phone + password with admin approval of new testers; see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)).
 
   1,405 backend tests and 90 Flutter tests pass. Production SMS needs a paid or carrier-charged sender. See
   [docs/PROGRESS.md](docs/PROGRESS.md) §3d and [docs/AUDIT.md](docs/AUDIT.md).

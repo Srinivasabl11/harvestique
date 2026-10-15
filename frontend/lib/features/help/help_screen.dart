@@ -15,9 +15,10 @@ class ManualSection {
 }
 
 const _account = ManualSection(Icons.lock_outline, 'Account, password and sign-in', [
-  'Signing in has two steps: your mobile number and password, then a one-time code sent to your phone by SMS.',
-  'Forgot your password? On the sign-in screen tap "Forgot password?", enter your number, then the code and a new password. All devices are signed out.',
-  'On a test server without an SMS service, the code is shown in a box marked "DEVELOPMENT MODE – not sent by SMS". A real server sends it by SMS.',
+  'Sign in with your mobile number and password. No SMS code is sent.',
+  'New accounts are checked by the Harvestique team. After you create an account, you can sign in once it is approved.',
+  'Forgot your password? Ask the Harvestique team. They give you a temporary password; sign in with it and choose a new one. All other devices are signed out.',
+  'To change your password, open the account menu (top right) and tap "Change password".',
   'Account menu (top right): Help & guide, assistant language (farmers), server status and Sign out.',
 ]);
 

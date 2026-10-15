@@ -34,37 +34,18 @@ Windows Defender Firewall for Private networks.
 cd backend
 .\.venv\Scripts\python.exe -m app.cli.create_admin --phone 9876500000 --name "Site Admin"
 
-# 2. Register a farmer: step 1 sends a one-time code (202, no tokens yet)
-$c = Invoke-RestMethod -Method Post http://localhost:8000/api/v1/auth/register -ContentType application/json `
+# 2. Register a farmer. Development keeps open sign-up (NEW_ACCOUNT_ACCESS=approved): 201 with tokens at once.
+#    Production uses NEW_ACCOUNT_ACCESS=pending: 202, no tokens, until an admin approves (admin app > Testers).
+$r = Invoke-RestMethod -Method Post http://localhost:8000/api/v1/auth/register -ContentType application/json `
   -Body '{"role":"farmer","phone":"9876543210","password":"Harvest123","full_name":"Ramesh Gowda","profile":{"village":"Hunsur","district":"Mysuru","state":"Karnataka"}}'
-# With SMS_PROVIDER=dev_console nothing is sent: the code is in $c.dev_code (labelled DEVELOPMENT MODE).
-# With a real SMS provider, read it from the phone instead.
-# 3. Step 2: verify the code; only now are tokens issued
-$r = Invoke-RestMethod -Method Post http://localhost:8000/api/v1/auth/register/verify -ContentType application/json `
-  -Body (@{challenge_id=$c.challenge_id; code=$c.dev_code} | ConvertTo-Json)
 Invoke-RestMethod http://localhost:8000/api/v1/auth/me -Headers @{Authorization="Bearer $($r.tokens.access_token)"}
 ```
-Signing in works the same way: `POST /auth/login` (phone + password) sends a code, `POST /auth/login/verify`
-returns the tokens. `POST /auth/otp/resend` sends a new code (60 s cooldown, 3 resends). Codes expire after
-5 minutes and allow 5 wrong attempts in total.
+Signing in is `POST /auth/login` with phone + password; it returns the tokens. There are no SMS codes (removed on
+2026-10-15). A forgotten password is reset by an admin (`POST /admin/users/{id}/password-reset`, or Testers > Reset
+password in the app), which gives a one-time temporary password; sign-in then answers 403 `password_change_required`
+until `POST /auth/password/change` sets a new one. An admin's own password: `python -m app.cli.set_password --phone
+...`. Lockout: 5 wrong passwords per number in 15 minutes, 20 in a day. Details: [DEPLOYMENT.md](DEPLOYMENT.md).
 
-### SMS for one-time codes (`SMS_PROVIDER`)
-* `dev_console` (default, development only): **no SMS is sent**. The code is written to the backend log and returned
-  in the API response; the app shows it in a box marked "DEVELOPMENT MODE – not sent by SMS". The server refuses to
-  start with it when `APP_ENV=production`.
-* `android_gateway`: an Android phone with a SIM sends the codes, using the open-source
-  [SMS Gateway for Android](https://github.com/capcom6/android-sms-gateway) app (Apache-2.0).
-  1. Install the app on a spare Android phone that has a SIM with SMS balance.
-  2. In the app, turn on **Local Server**. Note the address, the username and the password it shows.
-  3. Put the phone on the same network as the server. Then set these in `.env`:
-     `SMS_PROVIDER=android_gateway`, `SMS_GATEWAY_URL=http://<phone-ip>:8080`, `SMS_GATEWAY_USERNAME=...` and
-     `SMS_GATEWAY_PASSWORD=...`.
-  4. Restart the backend.
-
-  There is no SMS company account or API fee. But **every code is a normal SMS from that SIM**, charged by your
-  mobile plan and subject to its daily SMS limits. The phone must stay on and reachable.
-* There is no genuinely free SMS service for production; commercial SMS providers charge per message, and Indian
-  bulk SMS additionally needs DLT registration of the sender and message template.
 Interactive docs with an **Authorize** button: http://localhost:8000/api/v1/docs.
 Before deploying anywhere real, set a strong `JWT_SECRET_KEY` (the app refuses to start in
 `APP_ENV=production` otherwise).

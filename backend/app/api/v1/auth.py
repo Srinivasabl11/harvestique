@@ -1,28 +1,24 @@
 """Authentication endpoints.
 
-Registration and login are two steps. Step 1 (`/register`, `/login`) checks the details and sends a one-time code by
-SMS; it never returns tokens. Step 2 (`/register/verify`, `/login/verify`) checks the code and only then issues the
-session tokens.
+Sign-in is phone + password. Sign-up creates the account; on a server with NEW_ACCOUNT_ACCESS=pending (production) it
+then waits for an admin's approval and no tokens are issued until then. A forgotten password is reset by an admin
+(temporary password); `/password/change` sets a new one and signs in.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Request, Response, status
+from fastapi import APIRouter, Response, status
 
 from app.api.deps import AuthServiceDep, CurrentUserDep, UserServiceDep
-from app.core.enums import OtpPurpose
 from app.schemas.auth import (
     AuthResponse,
     LoginRequest,
-    OtpChallengeOut,
-    OtpResendRequest,
-    OtpVerifyRequest,
-    PasswordForgotRequest,
-    PasswordResetRequest,
+    PasswordChangeRequest,
     RefreshRequest,
     RegisterRequest,
+    RegistrationOut,
     TokenPair,
     TourUpdate,
     UserRead,
@@ -30,98 +26,55 @@ from app.schemas.auth import (
 from app.schemas.common import ErrorResponse
 
 router = APIRouter()
-STEP1: dict[int | str, dict[str, Any]] = {
-    409: {"model": ErrorResponse},
-    422: {"model": ErrorResponse},
-    429: {"model": ErrorResponse},
-    503: {"model": ErrorResponse},
-}
-STEP2: dict[int | str, dict[str, Any]] = {
+NO_STORE = "no-store"  # responses carrying tokens must not be cached by any proxy or client (RFC 6749 section 5.1)
+CREDENTIALS: dict[int | str, dict[str, Any]] = {
     401: {"model": ErrorResponse},
     403: {"model": ErrorResponse},
     422: {"model": ErrorResponse},
+    429: {"model": ErrorResponse},
 }
-
-
-def _client(request: Request) -> str | None:
-    return request.client.host if request.client else None
 
 
 @router.post(
     "/register",
-    response_model=OtpChallengeOut,
+    response_model=RegistrationOut,
     status_code=status.HTTP_202_ACCEPTED,
-    summary="Register a farmer or buyer: step 1 of 2 (sends a verification code by SMS)",
-    responses=STEP1,
+    summary="Register a farmer or buyer (201 + tokens when usable at once; 202 when it waits for admin approval)",
+    responses={
+        201: {"model": RegistrationOut, "description": "Account created and signed in"},
+        409: {"model": ErrorResponse},
+        422: {"model": ErrorResponse},
+        429: {"model": ErrorResponse},
+    },
 )
-def register(payload: RegisterRequest, request: Request, auth: AuthServiceDep) -> OtpChallengeOut:
-    return auth.register(payload, client=_client(request))
-
-
-@router.post(
-    "/register/verify",
-    response_model=AuthResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Register: step 2 of 2 (verify the SMS code, activate the account and sign in)",
-    responses=STEP2,
-)
-def register_verify(payload: OtpVerifyRequest, auth: AuthServiceDep) -> AuthResponse:
-    return auth.verify(OtpPurpose.REGISTER, payload)
+def register(payload: RegisterRequest, response: Response, auth: AuthServiceDep) -> RegistrationOut:
+    out = auth.register(payload)
+    response.headers["Cache-Control"] = NO_STORE
+    if out.tokens is not None:
+        response.status_code = status.HTTP_201_CREATED
+    return out
 
 
 @router.post(
     "/login",
-    response_model=OtpChallengeOut,
-    status_code=status.HTTP_202_ACCEPTED,
-    summary="Sign in: step 1 of 2 (phone and password; sends a one-time code by SMS)",
-    responses={401: {"model": ErrorResponse}, 403: {"model": ErrorResponse}, **STEP1},
-)
-def login(payload: LoginRequest, request: Request, auth: AuthServiceDep) -> OtpChallengeOut:
-    return auth.login(payload, client=_client(request))
-
-
-@router.post(
-    "/login/verify",
     response_model=AuthResponse,
-    summary="Sign in: step 2 of 2 (verify the SMS code; issues the session tokens)",
-    responses=STEP2,
+    summary="Sign in with phone and password (403 password_change_required after an admin password reset)",
+    responses=CREDENTIALS,
 )
-def login_verify(payload: OtpVerifyRequest, auth: AuthServiceDep) -> AuthResponse:
-    return auth.verify(OtpPurpose.LOGIN, payload)
+def login(payload: LoginRequest, response: Response, auth: AuthServiceDep) -> AuthResponse:
+    response.headers["Cache-Control"] = NO_STORE
+    return auth.login(payload)
 
 
 @router.post(
-    "/otp/resend",
-    response_model=OtpChallengeOut,
-    status_code=status.HTTP_202_ACCEPTED,
-    summary="Send a new code for a registration or sign-in in progress (cooldown and limits apply)",
-    responses={401: {"model": ErrorResponse}, 429: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
+    "/password/change",
+    response_model=AuthResponse,
+    summary="Set a new password using the current or temporary one; signs out other devices and signs in",
+    responses=CREDENTIALS,
 )
-def resend(payload: OtpResendRequest, request: Request, auth: AuthServiceDep) -> OtpChallengeOut:
-    return auth.resend(payload, client=_client(request))
-
-
-@router.post(
-    "/password/forgot",
-    response_model=OtpChallengeOut,
-    status_code=status.HTTP_202_ACCEPTED,
-    summary="Forgot password: step 1 of 2 (a code is sent if the number has an account; same answer otherwise)",
-    responses=STEP1,
-)
-def forgot_password(payload: PasswordForgotRequest, request: Request, auth: AuthServiceDep) -> OtpChallengeOut:
-    return auth.forgot_password(payload, client=_client(request))
-
-
-@router.post(
-    "/password/reset",
-    status_code=status.HTTP_204_NO_CONTENT,
-    response_class=Response,
-    summary="Forgot password: step 2 of 2 (code + new password; signs out every session)",
-    responses=STEP2,
-)
-def reset_password(payload: PasswordResetRequest, auth: AuthServiceDep) -> Response:
-    auth.reset_password(payload)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+def change_password(payload: PasswordChangeRequest, response: Response, auth: AuthServiceDep) -> AuthResponse:
+    response.headers["Cache-Control"] = NO_STORE
+    return auth.change_password(payload)
 
 
 @router.post(
@@ -140,7 +93,8 @@ def tour_seen(payload: TourUpdate, current: CurrentUserDep, auth: AuthServiceDep
     summary="Exchange a refresh token for a new token pair (rotation)",
     responses={401: {"model": ErrorResponse}},
 )
-def refresh(payload: RefreshRequest, auth: AuthServiceDep) -> TokenPair:
+def refresh(payload: RefreshRequest, response: Response, auth: AuthServiceDep) -> TokenPair:
+    response.headers["Cache-Control"] = NO_STORE
     return auth.refresh(payload.refresh_token)
 
 

@@ -21,6 +21,8 @@ Alembic migrations once per session and truncates tables between tests.
   * backend: `tests/integration/test_auth_otp.py`, `test_assistant_conversation.py`, `test_plan_workflow.py`;
   * Flutter: `test/features/auth/otp_screen_test.dart`, `assistant/assistant_screen_test.dart`,
     `planning/plan_forms_test.dart`, `planning/plans_screen_test.dart`, `farm/expenses_screen_test.dart`.
+* (2026-10-15: SMS codes were removed; `test_auth_otp.py` and `otp_screen_test.dart` were replaced by
+  `test_password_change.py` and `password_auth_test.dart`.)
 * Not tested: speech and SMS on a real phone. In tests the phone's speech engines are a scripted `VoiceEngine` and
   SMS delivery is a recording sender (`RecordingSms`). The Android SMS gateway adapter is tested against a mocked
   HTTP server, not a real phone.

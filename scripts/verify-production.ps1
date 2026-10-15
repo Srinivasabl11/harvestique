@@ -30,6 +30,8 @@ $me = Call GET "/auth/me"
 Check "auth required" ($me.Status -eq 401) "GET /auth/me without a token -> $($me.Status)"
 $bad = Call POST "/auth/login" @{ phone = "+919000000099"; password = "not-the-password-1" }
 Check "wrong password refused" ($bad.Status -eq 401 -and $bad.Body -match "invalid_credentials") "-> $($bad.Status)"
+$sms = Call POST "/auth/login/verify" @{ challenge_id = "00000000-0000-0000-0000-000000000000"; code = "000000" }
+Check "no SMS-code endpoints (password-only build)" ($sms.Status -eq 404) "POST /auth/login/verify -> $($sms.Status)"
 $cors = Call OPTIONS "/auth/me" $null @{ Origin = "https://evil.example"; "Access-Control-Request-Method" = "GET" }
 Check "browser origins refused (CORS)" (-not $cors.Headers["Access-Control-Allow-Origin"]) "preflight -> $($cors.Status)"
 $plain = $BaseUrl -replace '^https://', 'http://'

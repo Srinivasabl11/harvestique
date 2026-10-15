@@ -3,9 +3,10 @@
 Generated from the running application by `python -m app.cli.gen_docs` (do not edit by hand).
 Base path `/api/v1`. Interactive docs: `/docs` (Swagger UI) and `/openapi.json` when the server runs.
 
-* **Auth:** two steps. `/auth/register` or `/auth/login` sends a one-time SMS code (202, no tokens);
-  `/auth/register/verify` or `/auth/login/verify` checks it and returns `Authorization: Bearer <access token>`;
-  refresh with `/auth/refresh`.
+* **Auth:** phone + password. `/auth/login` returns the tokens; send `Authorization: Bearer <access token>` and
+  refresh with `/auth/refresh`. `/auth/register` signs in at once (201) or, on a server where new accounts wait for
+  an admin, answers 202 without tokens. After an admin password reset, `/auth/login` answers 403
+  `password_change_required` until `/auth/password/change` sets a new password.
 * **Roles** below are the ones the route actually enforces (taken from its dependencies): `public`, `any signed-in`,
   or a role list. Resource routes additionally check ownership and answer **404** for another user's resource.
 * **Errors** use one envelope: `{"error": {"code", "message", "details"}}`; 401 not signed in, 403 wrong role,
@@ -16,7 +17,7 @@ Base path `/api/v1`. Interactive docs: `/docs` (Swagger UI) and `/openapi.json` 
   No endpoint returns or computes a market price.
 
 
-**143 operations.**
+**140 operations.**
 
 
 ## activities
@@ -35,6 +36,7 @@ Base path `/api/v1`. Interactive docs: `/docs` (Swagger UI) and `/openapi.json` 
 |---|---|---|---|---|---|
 | `GET` | `/admin/users` | admin | - | Page_UserRead_ | List users (admin only) |
 | `POST` | `/admin/users/{user_id}/access` | admin | AccessUpdate (json) | UserRead | Approve, suspend or revoke a tester's access (admin only) |
+| `POST` | `/admin/users/{user_id}/password-reset` | admin | - | TemporaryPasswordOut | Give a farmer or buyer a one-time temporary password; they must change it at sign-in (admin only) |
 
 ## assistant, voice and crop health
 
@@ -54,13 +56,9 @@ Base path `/api/v1`. Interactive docs: `/docs` (Swagger UI) and `/openapi.json` 
 
 | Method | Path | Roles | Request | Response | Summary |
 |---|---|---|---|---|---|
-| `POST` | `/auth/register` | public |  (json) | OtpChallengeOut | Register a farmer or buyer: step 1 of 2 (sends a verification code by SMS) |
-| `POST` | `/auth/register/verify` | public | OtpVerifyRequest (json) | AuthResponse | Register: step 2 of 2 (verify the SMS code, activate the account and sign in) |
-| `POST` | `/auth/login` | public | LoginRequest (json) | OtpChallengeOut | Sign in: step 1 of 2 (phone and password; sends a one-time code by SMS) |
-| `POST` | `/auth/login/verify` | public | OtpVerifyRequest (json) | AuthResponse | Sign in: step 2 of 2 (verify the SMS code; issues the session tokens) |
-| `POST` | `/auth/otp/resend` | public | OtpResendRequest (json) | OtpChallengeOut | Send a new code for a registration or sign-in in progress (cooldown and limits apply) |
-| `POST` | `/auth/password/forgot` | public | PasswordForgotRequest (json) | OtpChallengeOut | Forgot password: step 1 of 2 (a code is sent if the number has an account; same answer otherwise) |
-| `POST` | `/auth/password/reset` | public | PasswordResetRequest (json) | - | Forgot password: step 2 of 2 (code + new password; signs out every session) |
+| `POST` | `/auth/register` | public |  (json) | RegistrationOut | Register a farmer or buyer (201 + tokens when usable at once; 202 when it waits for admin approval) |
+| `POST` | `/auth/login` | public | LoginRequest (json) | AuthResponse | Sign in with phone and password (403 password_change_required after an admin password reset) |
+| `POST` | `/auth/password/change` | public | PasswordChangeRequest (json) | AuthResponse | Set a new password using the current or temporary one; signs out other devices and signs in |
 | `POST` | `/auth/me/tour` | any signed-in | TourUpdate (json) | UserRead | Record that the first-login tour (this version) was finished or skipped |
 | `POST` | `/auth/refresh` | public | RefreshRequest (json) | TokenPair | Exchange a refresh token for a new token pair (rotation) |
 | `POST` | `/auth/logout` | any signed-in | - | - | End the current session |

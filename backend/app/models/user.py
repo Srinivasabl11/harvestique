@@ -32,11 +32,14 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     access_changed_at: Mapped[datetime | None]
     last_login_at: Mapped[datetime | None]
-    # Set when the person proves they receive SMS on `phone` (registration or login code). Accounts created before
-    # phone verification existed keep NULL until their next login, which verifies them.
+    # History: when the person last proved by SMS code that they receive messages on `phone`. SMS codes are no longer
+    # used, so new accounts keep NULL; an admin approving a tester is the check that the number is theirs.
     phone_verified_at: Mapped[datetime | None]
-    # A sign-up whose code was never entered: it cannot sign in and is replaced if the number registers again.
+    # History: a sign-up whose SMS code was never entered. It cannot sign in and is replaced if the number registers
+    # again. New sign-ups never set it.
     registration_pending: Mapped[bool] = mapped_column(default=False, server_default=false())
+    # Set by an admin password reset (temporary password): no session is issued until the person sets a new password.
+    must_change_password: Mapped[bool] = mapped_column(default=False, server_default=false())
     # Highest version of the first-login guided tour this person finished or skipped (0 = never shown).
     tour_version_seen: Mapped[int] = mapped_column(default=0, server_default="0")
 

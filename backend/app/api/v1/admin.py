@@ -5,11 +5,11 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Response
 
 from app.api.deps import AdminDep, AuthServiceDep, UserServiceDep
 from app.core.enums import AccessStatus, UserRole
-from app.schemas.auth import AccessUpdate, UserRead
+from app.schemas.auth import AccessUpdate, TemporaryPasswordOut, UserRead
 from app.schemas.common import ErrorResponse, Page
 
 router = APIRouter()
@@ -40,3 +40,16 @@ def list_users(
 )
 def set_user_access(admin: AdminDep, auth: AuthServiceDep, user_id: uuid.UUID, payload: AccessUpdate) -> UserRead:
     return auth.set_access(admin, user_id, payload)
+
+
+@router.post(
+    "/users/{user_id}/password-reset",
+    response_model=TemporaryPasswordOut,
+    summary="Give a farmer or buyer a one-time temporary password; they must change it at sign-in (admin only)",
+    responses={401: {"model": ErrorResponse}, 403: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
+)
+def reset_user_password(
+    admin: AdminDep, auth: AuthServiceDep, user_id: uuid.UUID, response: Response
+) -> TemporaryPasswordOut:
+    response.headers["Cache-Control"] = "no-store"  # carries a password
+    return auth.admin_reset_password(admin, user_id)

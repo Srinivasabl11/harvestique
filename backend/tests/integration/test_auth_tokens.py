@@ -9,7 +9,7 @@ import jwt
 import pytest
 from sqlalchemy import text
 
-from tests.conftest import STRONG_TEST_SECRET, bearer, login_and_verify
+from tests.conftest import PASSWORD, STRONG_TEST_SECRET, bearer, sign_in
 
 ME = "/api/v1/auth/me"
 REFRESH = "/api/v1/auth/refresh"
@@ -29,7 +29,7 @@ def test_me_returns_authenticated_user(db_client, register_farmer):
     r = db_client.get(ME, headers=bearer(data["tokens"]["access_token"]))
     assert r.status_code == 200
     assert r.json()["id"] == data["user"]["id"] and r.json()["role"] == "farmer"
-    assert "password" not in r.text
+    assert "password_hash" not in r.text and "argon2" not in r.text and PASSWORD not in r.text
 
 
 def test_me_returns_buyer_profile_for_buyers(db_client, register_buyer):
@@ -155,7 +155,7 @@ def test_logout_only_ends_the_current_session(db_client, register_farmer):
     register_farmer()
 
     def login() -> dict:
-        return login_and_verify(db_client, "9876543210", "Harvest123")["tokens"]
+        return sign_in(db_client, "9876543210", "Harvest123")["tokens"]
 
     phone_session, tablet_session = login(), login()
     db_client.post(LOGOUT, headers=bearer(phone_session["access_token"]))

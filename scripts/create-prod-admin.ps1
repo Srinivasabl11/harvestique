@@ -10,7 +10,7 @@ $url = $env:PROD_DATABASE_URL
 if (-not $url) { throw "Set PROD_DATABASE_URL to the Neon connection string first" }
 $root = Split-Path -Parent $PSScriptRoot
 docker build -q -t harvestique-backend-prod (Join-Path $root "backend") | Out-Null
-# APP_ENV=test: the CLI only needs the database; it must not require the production SMS/AI settings here.
+# APP_ENV=test: the CLI only needs the database; it must not require the production AI settings here.
 docker run --rm -it -e "DATABASE_URL=$url" -e "APP_ENV=test" -e "SEED_CROP_CATALOG_ON_STARTUP=false" `
     harvestique-backend-prod python -m app.cli.create_admin --phone $Phone --name $Name
 if ($LASTEXITCODE -ne 0) { throw "Creating the admin FAILED" }
