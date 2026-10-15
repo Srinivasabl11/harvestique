@@ -5,7 +5,7 @@ The Android app talks to a hosted API, so phones work without the development PC
 | Part | Service (free plan) | Why |
 |---|---|---|
 | API (FastAPI, Docker) | **Render** web service, Singapore, `render.yaml` | Public HTTPS, Docker, no card needed for free web services |
-| Database | **Neon** Postgres 17, AWS Singapore (`ap-southeast-1`) | Permanent free plan (Render's free Postgres is deleted after 30 days) |
+| Database | **Neon** Postgres 18, AWS Singapore (`ap-southeast-1`) | Permanent free plan (Render's free Postgres is deleted after 30 days) |
 | AI assistant + crop-photo check | **Ollama Cloud** (`https://ollama.com`, same API as local Ollama) | No code path change; no PC needed |
 | SMS one-time codes | **SMS Gateway for Android**, free Cloud Server mode | Sends from a phone + SIM over mobile data; no SMS company account |
 | Weather | Open-Meteo (no key) | unchanged |
@@ -28,7 +28,7 @@ Limits checked on 2026-10-15:
 
 ## One-time setup (needs your accounts)
 
-1. **Neon**: sign up at <https://neon.com> (no card), create project `harvestique`, Postgres 17, region
+1. **Neon**: sign up at <https://neon.com> (no card), create project `harvestique`, Postgres 18 (the current default), region
    *AWS Asia Pacific (Singapore)*. In *Connect*, turn **off** "Connection pooling" and copy the connection string
    (`postgresql://...neon.tech/neondb?sslmode=require`).
 2. **Copy the existing data** into the new empty database (the script refuses a database that already has tables):

@@ -14,8 +14,8 @@ $url = $url -replace '^postgresql\+psycopg://', 'postgresql://'
 
 New-Item -ItemType Directory -Force $OutDir | Out-Null
 $name = "harvestique_prod_{0}.dump" -f (Get-Date -Format "yyyyMMdd_HHmmss")
-# pg_dump must be at least the server's major version (Neon: 17), so it runs from the postgres:17 image.
-docker run --rm -e "DBURL=$url" -v "${OutDir}:/out" postgres:17-alpine `
+# pg_dump must be at least the server's major version (Neon: 18), so it runs from the postgres:18 image.
+docker run --rm -e "DBURL=$url" -v "${OutDir}:/out" postgres:18-alpine `
     sh -c "pg_dump `"`$DBURL`" -Fc --no-owner --no-acl -f /out/$name && pg_restore -l /out/$name | grep -c 'TABLE DATA'"
 if ($LASTEXITCODE -ne 0) { throw "Backup FAILED" }
 $item = Get-Item (Join-Path $OutDir $name)
