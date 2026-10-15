@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import DomainValidationError, NotFoundError
 from app.core.ratelimit import HourlyLimit
+from app.domain.agri_taxonomy import CatalogueItem, identify
 from app.domain.crop_catalog import group_and_part
 from app.domain.crop_health_report import REPORT_VERSION, build_report
 from app.domain.crop_health_validation import MIN_PER_CLASS, MIN_RECALL, validation_for
@@ -162,6 +163,7 @@ class CropHealthService:
         if self._limit is not None:
             self._limit.check(owner_id)
         result = self._classifier.assess(rgb, language, context)
+        identification = self._identify(result, crop)
         validation = validation_for(crop.name) if crop is not None else None
         row = CropHealthAnalysis(
             owner_id=owner_id,
@@ -173,10 +175,23 @@ class CropHealthService:
             probabilities=result.probabilities,
             features={
                 **result.features,
+                **identification,
                 "quality_flags": result.quality_flags,
                 **({"validation": validation} if validation is not None else {}),
                 # structured, evidence-based report with the visual condition score (or why it is withheld)
-                "analysis": build_report(result, language, validation, crop.name if crop else None),
+                "analysis": build_report(
+                    HealthAssessment(
+                        result.label,
+                        result.probabilities,
+                        {**result.features, **identification},
+                        result.quality_flags,
+                        result.explanation,
+                        result.advice,
+                    ),
+                    language,
+                    validation,
+                    crop.name if crop else None,
+                ),
             },
             model_name=result.model_name or self._classifier.name,
             model_version=result.model_version or self._classifier.version,
@@ -184,6 +199,31 @@ class CropHealthService:
         self._repo.add(row)
         self._session.commit()
         return self._out(row, result.explanation, result.advice)
+
+    def _identify(self, result: HealthAssessment, crop: Crop | None) -> dict[str, Any]:
+        """Which catalogue item the result is about: the farmer's crop when they chose one, else the AI's guess
+        matched against the whole catalogue (domain.agri_taxonomy). {"identification": "none"} only when the AI
+        looked at a usable plant photo and named nothing that matches one item; no claim at all otherwise."""
+        if crop is not None:
+            return {"identified": self._item(crop, "your_crop")}
+        f, flags = result.features, set(result.quality_flags)
+        if f.get("ai_unavailable") or f.get("mode") == "measurements_only" or "precheck" in f or "not_a_plant" in flags:
+            return {}
+        crops = self._session.scalars(select(Crop).where(Crop.is_active.is_(True))).all()
+        items = {c.name: c for c in crops}
+        found = identify(f.get("crop_seen"), [self._catalogue_item(c) for c in crops])
+        if found is None:
+            return {"identification": "none"}
+        return {"identified": self._item(items[found.item.name], "photo")}
+
+    @staticmethod
+    def _catalogue_item(crop: Crop) -> CatalogueItem:
+        group = group_and_part(crop.name, crop.category.value, crop.crop_group.value if crop.crop_group else None)[0]
+        return CatalogueItem(crop.name, crop.local_name, tuple(crop.aliases or []), group)
+
+    def _item(self, crop: Crop, source: str) -> dict[str, Any]:
+        item = self._catalogue_item(crop)
+        return {"name": crop.name, "local_name": crop.local_name, "group": item.group, "source": source}
 
     def history(self, owner_id: uuid.UUID, cycle_id: uuid.UUID | None) -> list[CropHealthOut]:
         if cycle_id is not None:

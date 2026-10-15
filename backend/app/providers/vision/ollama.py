@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import base64
 import io
-import json
 import logging
 import re
 import time
@@ -29,6 +28,7 @@ from app.domain.crop_health_report import COLOURS, EXTENT_FACTOR, PART_NAME, PRO
 from app.domain.crop_profiles import CropContext, crop_matches
 from app.domain.vision import MAX_PROBABILITY, MIN_LABEL_PROBABILITY, TEXT, HealthAssessment, _cap, photo_quality
 from app.providers.vision.base import CropHealthClassifier
+from app.providers.vision.model_json import parse_model_json
 
 logger = logging.getLogger(__name__)
 SYMPTOMS = (
@@ -59,6 +59,9 @@ SIDE = 768  # enough detail for leaf spots; the model rescales internally
 
 # parts the model may report seeing (no "fungus", "latex" or "whole_plant": those are not photo parts)
 SEEN_PARTS = tuple(p for p in PARTS if p not in ("fungus", "latex", "whole_plant"))
+ITEMS = ("one", "several")
+# the model sometimes answers the plural ("leaves", "fruits"); read it as the part
+PART_PLURALS = {"leaves": "leaf", **{f"{p}s": p for p in SEEN_PARTS}}
 
 # Field order matters: the model writes its description BEFORE it judges, which made the judgement more consistent
 # with what it saw in testing on real leaf photos.
@@ -75,6 +78,8 @@ SCHEMA = {
         # added AFTER the judgement fields, so the health answer is produced exactly as before
         "crop_seen": {"type": "string"},
         "plant_part": {"type": "string", "enum": [*SEEN_PARTS, "unknown"]},
+        # 2026-10-16, last so the earlier answers are produced as before: several kinds of crop in one photo
+        "items_in_photo": {"type": "string", "enum": list(ITEMS)},
     },
     "required": [
         "description",
@@ -86,6 +91,7 @@ SCHEMA = {
         "confidence",
         "crop_seen",
         "plant_part",
+        "items_in_photo",
     ],
 }
 SYSTEM = (
@@ -101,7 +107,8 @@ PROMPT = (
     "symptoms (every sign you described, from the allowed list, or ['none']), overall (healthy only if there are no "
     "spots or markings; possible_disease = spots or lesions; stress = wilting or drying; possible_deficiency = even "
     "yellowing; or unclear), confidence (low, medium, high), crop_seen (the crop you think this is, in one or two "
-    "words, or 'unknown'), plant_part (the part of the plant that fills most of the photo)."
+    "words, or 'unknown'), plant_part (the part of the plant that fills most of the photo), items_in_photo (one if "
+    "the photo shows one kind of crop or produce, several if different kinds are mixed)."
 )
 # CANDIDATE prompt v2 (CROP_HEALTH_PROMPT_VERSION=v2; default v1). Written 2026-10-15 from the failure pattern in the
 # SEEN PlantDoc/Koppal answers (healthy leaves described as having "small light-coloured spots/markings" or "veins
@@ -135,6 +142,7 @@ SCHEMA_V2 = {
         "overall": {"type": "string", "enum": list(OVERALL)},
         "confidence": {"type": "string", "enum": list(CONFIDENCE)},
         "crop_seen": {"type": "string"},
+        "items_in_photo": {"type": "string", "enum": list(ITEMS)},
     },
     "required": [
         "description",
@@ -147,6 +155,7 @@ SCHEMA_V2 = {
         "overall",
         "confidence",
         "crop_seen",
+        "items_in_photo",
     ],
 }
 PROMPT_V2 = (
@@ -159,7 +168,8 @@ PROMPT_V2 = (
     "no damage seen; possible_disease = spots, lesions, mould, powder or rot; stress = wilting, drying or curling; "
     "possible_deficiency = even yellowing; or unclear), confidence (low, medium, high), crop_seen (the crop you think "
     "this is, in one or two words, or 'unknown'). Normal features are NOT damage: veins (even pale or yellowish "
-    "veins), shine or light reflections, dust, soil, water drops, leaf hairs and the variety's own colour pattern."
+    "veins), shine or light reflections, dust, soil, water drops, leaf hairs and the variety's own colour pattern. "
+    "items_in_photo: one if the photo shows one kind of crop or produce, several if different kinds are mixed."
 )
 PROMPTS = {"v1": (SCHEMA, PROMPT, 240), "v2": (SCHEMA_V2, PROMPT_V2, 360)}  # schema, prompt, max answer tokens
 # Signs named in the model's own description (it often leaves the symptom list empty). Negated mentions ("no spots")
@@ -197,7 +207,7 @@ STRESS_SIGNS = frozenset({"wilting", "dry_edges", "curling", "browning", "cracki
 # seen ("markings", "yellowing and browning"), so they now lower confidence and add a retake tip instead.
 # crop_mismatch: the model named a different crop than the farmer chose; it may be the wrong photo or a wrong
 # guess, so it only lowers confidence and asks to check
-SOFT_FLAGS = frozenset({"not_close_up", "poor_photo", "crop_mismatch"})
+SOFT_FLAGS = frozenset({"not_close_up", "poor_photo", "crop_mismatch", "several_items"})
 RETAKE_TIP = {
     "en": {
         "not_close_up": "Tip: move closer so one or two affected leaves fill the photo.",
@@ -208,6 +218,7 @@ RETAKE_TIP = {
         "crop_mismatch": "Note: the AI thinks this may not be {crop}. Check the crop you picked, or retake the photo.",
         "part_not_leaves": "Note: this photo mainly shows the {part}, so only the {part} was judged. For leaf health, "
         "take a close photo of the leaves.",
+        "several_items": "Note: the photo shows several kinds of crop. Photograph one kind at a time.",
     },
     "kn": {
         "not_close_up": "ಸಲಹೆ: ಒಂದು ಅಥವಾ ಎರಡು ಬಾಧಿತ ಎಲೆಗಳು ಫೋಟೋವನ್ನು ತುಂಬುವಂತೆ ಹತ್ತಿರದಿಂದ ತೆಗೆಯಿರಿ.",
@@ -218,6 +229,7 @@ RETAKE_TIP = {
         "crop_mismatch": "ಗಮನಿಸಿ: ಇದು {crop} ಅಲ್ಲದಿರಬಹುದು ಎಂದು AI ಭಾವಿಸುತ್ತದೆ. ಆಯ್ಕೆ ಮಾಡಿದ ಬೆಳೆ ಪರಿಶೀಲಿಸಿ ಅಥವಾ ಮತ್ತೆ ಫೋಟೋ ತೆಗೆಯಿರಿ.",
         "part_not_leaves": "ಗಮನಿಸಿ: ಈ ಫೋಟೋದಲ್ಲಿ ಹೆಚ್ಚಾಗಿ {part} ಕಾಣುತ್ತಿದೆ, ಆದ್ದರಿಂದ {part} ಅನ್ನು ಮಾತ್ರ ಪರಿಶೀಲಿಸಲಾಗಿದೆ. ಎಲೆಗಳ "
         "ಆರೋಗ್ಯಕ್ಕಾಗಿ ಎಲೆಗಳ ಹತ್ತಿರದ ಫೋಟೋ ತೆಗೆಯಿರಿ.",
+        "several_items": "ಗಮನಿಸಿ: ಫೋಟೋದಲ್ಲಿ ಹಲವು ಬಗೆಯ ಬೆಳೆಗಳಿವೆ. ಒಂದು ಬಾರಿಗೆ ಒಂದೇ ಬಗೆಯ ಫೋಟೋ ತೆಗೆಯಿರಿ.",
     },
 }
 AI_NOTE = {"en": "What the AI sees (may be wrong)", "kn": "AI ಕಾಣುವುದು (ಇಂಗ್ಲಿಷ್‌ನಲ್ಲಿ, ತಪ್ಪಾಗಿರಬಹುದು)"}
@@ -314,7 +326,11 @@ def interpret(raw: dict[str, Any], language: str, crop: CropContext | None = Non
     elif raw.get("photo_quality") == "poor":
         flags.append("poor_photo")
     crop_seen = clean_description(str(raw.get("crop_seen") or ""))[:40] or None
-    part = str(raw.get("plant_part")) if raw.get("plant_part") in SEEN_PARTS else "unknown"
+    said_part = str(raw.get("plant_part") or "").strip().lower()
+    said_part = PART_PLURALS.get(said_part, said_part)
+    part = said_part if said_part in SEEN_PARTS else "unknown"
+    if raw.get("items_in_photo") == "several" and "not_a_plant" not in flags:
+        flags.append("several_items")  # which item would the result be about? ask for one kind per photo
     match = crop_matches(crop_seen, crop) if crop is not None else None
     if match is False and "not_a_plant" not in flags:
         flags.append("crop_mismatch")
@@ -580,7 +596,7 @@ class OllamaVisionClassifier:
         }
         resp = self._client.post(f"{self._base}/api/chat", json=body)
         resp.raise_for_status()
-        parsed = json.loads(resp.json()["message"]["content"])
+        parsed = parse_model_json(resp.json()["message"]["content"])  # fenced JSON from Ollama Cloud too
         if not isinstance(parsed, dict):
             raise ValueError("not an object")
         return parsed

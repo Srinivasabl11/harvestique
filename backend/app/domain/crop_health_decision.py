@@ -105,6 +105,13 @@ TEXT: dict[str, dict[str, str]] = {
         "step_retry_later": "Try again in a few minutes. Your photo was not stored.",
         "step_self_check": "Meanwhile, check the plant yourself for spots, yellowing, holes, drying or insects, and "
         "ask an agriculture officer if you see signs spreading.",
+        "sum_several_items": "The photo shows several kinds of crop or produce, so no health result is given.",
+        "sum_unidentified": "The item in the photo could not be identified with confidence, so no health result is "
+        "given.",
+        "step_one_item": "Photograph one kind of crop or produce at a time, close up, in daylight.",
+        "step_from_crop": "Or start the check from your crop in My Farm, so the crop is already known.",
+        "score_meaning": "Health score: how healthy it looks in this photo (100 % = no visible damage). It is not the "
+        "AI's confidence and not a diagnosis.",
         "step_specialist": "For contamination, odd colours or smells in the beds, ask your Krishi Vigyan Kendra or a "
         "mushroom-growing specialist.",
     },
@@ -160,6 +167,12 @@ TEXT: dict[str, dict[str, str]] = {
         "step_retry_later": "ಕೆಲವು ನಿಮಿಷಗಳ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ. ನಿಮ್ಮ ಫೋಟೋವನ್ನು ಉಳಿಸಿಲ್ಲ.",
         "step_self_check": "ಅಲ್ಲಿಯವರೆಗೆ ಗಿಡದಲ್ಲಿ ಕಲೆ, ಹಳದಿ, ರಂಧ್ರ, ಒಣಗುವಿಕೆ ಅಥವಾ ಕೀಟಗಳಿವೆಯೇ ಎಂದು ನೀವೇ ನೋಡಿ; ಲಕ್ಷಣಗಳು "
         "ಹರಡುತ್ತಿದ್ದರೆ ಕೃಷಿ ಅಧಿಕಾರಿಯನ್ನು ಕೇಳಿ.",
+        "sum_several_items": "ಫೋಟೋದಲ್ಲಿ ಹಲವು ಬಗೆಯ ಬೆಳೆ ಅಥವಾ ಉತ್ಪನ್ನಗಳಿವೆ; ಆದ್ದರಿಂದ ಆರೋಗ್ಯ ಫಲಿತಾಂಶ ನೀಡಿಲ್ಲ.",
+        "sum_unidentified": "ಫೋಟೋದಲ್ಲಿರುವ ಬೆಳೆಯನ್ನು ಖಚಿತವಾಗಿ ಗುರುತಿಸಲು ಆಗಲಿಲ್ಲ; ಆದ್ದರಿಂದ ಆರೋಗ್ಯ ಫಲಿತಾಂಶ ನೀಡಿಲ್ಲ.",
+        "step_one_item": "ಒಂದು ಬಾರಿಗೆ ಒಂದೇ ಬಗೆಯ ಬೆಳೆ ಅಥವಾ ಉತ್ಪನ್ನದ ಹತ್ತಿರದ ಫೋಟೋವನ್ನು ಹಗಲು ಬೆಳಕಿನಲ್ಲಿ ತೆಗೆಯಿರಿ.",
+        "step_from_crop": "ಅಥವಾ 'ನನ್ನ ಹೊಲ'ದಲ್ಲಿರುವ ನಿಮ್ಮ ಬೆಳೆಯಿಂದ ಪರಿಶೀಲನೆ ಆರಂಭಿಸಿ; ಆಗ ಬೆಳೆ ಮೊದಲೇ ತಿಳಿದಿರುತ್ತದೆ.",
+        "score_meaning": "ಆರೋಗ್ಯ ಅಂಕ: ಈ ಫೋಟೋದಲ್ಲಿ ಎಷ್ಟು ಆರೋಗ್ಯಕರವಾಗಿ ಕಾಣುತ್ತದೆ (100 % = ಕಾಣುವ ಹಾನಿ ಇಲ್ಲ). ಇದು AI ಯ ಖಚಿತತೆ "
+        "ಅಲ್ಲ, ರೋಗನಿರ್ಣಯವೂ ಅಲ್ಲ.",
         "step_specialist": "ಹಾಸಿಗೆಯಲ್ಲಿ ಕಲುಷಿತತೆ, ವಿಚಿತ್ರ ಬಣ್ಣ ಅಥವಾ ವಾಸನೆ ಕಂಡರೆ ಕೃಷಿ ವಿಜ್ಞಾನ ಕೇಂದ್ರ ಅಥವಾ ಅಣಬೆ ಬೆಳೆ ತಜ್ಞರನ್ನು ಸಂಪರ್ಕಿಸಿ.",
     },
 }
@@ -177,6 +190,10 @@ def status_and_reason(label: CropHealthClass, features: dict[str, Any], flags: l
     if f.get("mode") == "measurements_only" or f.get("ai_unavailable"):
         error = f.get("ai_error")
         return "unavailable", error if error in AI_ERRORS else "no_ai"
+    if "several_items" in fl:  # which item would the result be about?
+        return "retake_photo", "several_items"
+    if f.get("identification") == "none":  # no crop chosen and the photo's item is not one we can name
+        return "retake_photo", "unidentified"
     signs = [s for s in f.get("symptoms") or [] if s in SIGN_WEIGHT]
     if label in PROBLEMS and signs:
         return "needs_attention", "visible_signs"
@@ -252,20 +269,65 @@ def decide(
             steps.append(t["step_crop"])
         if reason == "produce_colour":
             steps.append(t["step_leaves"].format(part=part_name or "fruit"))
-        steps += [t["step_photo"], t["step_affected"]]
+        if reason in ("several_items", "unidentified"):
+            steps += [t["step_one_item"], t["step_from_crop"]]
+        else:
+            steps += [t["step_photo"], t["step_affected"]]
     elif reason == "specialist":
         steps = [t["step_specialist"]]
     else:
         steps = [t["step_retry_later"], t["step_self_check"]]
 
+    # health score and A/B/C category: only when the photo gave a health result (never for a retake or no AI)
+    from app.domain.agri_taxonomy import CATEGORY_TEXT, health_category
+    from app.domain.crop_health_report import health_percent
+
+    score = health_percent(features) if status in ("healthy", "needs_attention") else None
+    category = health_category(score)
     return {
         "status": status,
         "reason": reason,
         "title": t[f"title_{status}"],
         "summary": summary,
+        "item": item_of(features, lang, crop_name),
+        "health_score": score,
+        "health_category": category,
+        "category_text": CATEGORY_TEXT[lang][category],
+        "score_meaning": t["score_meaning"],
         "confidence": confidence,
+        "confidence_label": t[confidence] if confidence else None,  # one word, in the request's language
         "confidence_text": confidence_text,
         "signs": signs,
         "next_steps": steps,
         "is_diagnosis": False,
     }
+
+
+def item_of(features: dict[str, Any], lang: str, crop_name: str = "") -> dict[str, Any] | None:
+    """The identified item with its parent category (stored by the service as features["identified"]), else the
+    farmer's chosen crop for results stored before identification existed. None when nothing is known."""
+    from app.domain.agri_taxonomy import parent_name, parent_of
+
+    found = features.get("identified")
+    if isinstance(found, dict) and found.get("name"):
+        parent = parent_of(found.get("group"))
+        local = found.get("local_name") or None
+        return {
+            "name": found["name"],
+            "local_name": local,
+            "display_name": local if lang == "kn" and local else found["name"],
+            "parent": parent,
+            "parent_name": parent_name(parent, lang),
+            "source": found.get("source"),  # your_crop (chosen by the farmer) or photo (the AI's guess, matched)
+        }
+    name = crop_name or features.get("expected_crop")
+    if name:
+        return {
+            "name": name,
+            "local_name": None,
+            "display_name": name,
+            "parent": None,
+            "parent_name": None,
+            "source": "your_crop",
+        }
+    return None

@@ -23,7 +23,7 @@ from app.core.enums import CropHealthClass
 from app.domain.crop_profiles import is_crop_guess
 from app.domain.vision import HealthAssessment
 
-REPORT_VERSION = 2  # 2: farmer-facing decision (domain.crop_health_decision); no category-bar text
+REPORT_VERSION = 3  # 2: farmer-facing decision; 3: identified item, health score % and A/B/C category
 SIGN_WEIGHT: dict[str, float] = {
     "spots": 1.0,  # unspecified spots or markings: the weakest sign (often veins, glare or dust on healthy leaves)
     "yellowing": 1.5,
@@ -45,7 +45,10 @@ EXTENT_FACTOR = {"one_or_few": 1.0, "several": 1.5, "many": 2.0}
 TISSUE_CAP = {"some": 6, "little": 3}
 COLOURS = ("light_or_white", "yellow", "brown", "dark_or_black")
 PRODUCE_PARTS = frozenset({"fruit", "tuber", "root", "bulb", "rhizome", "corm", "grain", "pod", "seed", "flower"})
-PHOTO_FLAGS = ("not_a_plant", "too_dark", "blurry", "poor_photo", "not_close_up")
+PHOTO_FLAGS = ("not_a_plant", "too_dark", "blurry", "poor_photo", "not_close_up", "several_items")
+UNCLEAR_PHOTO = frozenset(
+    {"too_dark", "blurry", "poor_photo", "not_close_up", "too_bright", "little_plant_visible", "several_items"}
+)
 PROBLEMS = (CropHealthClass.POSSIBLE_DISEASE, CropHealthClass.STRESS, CropHealthClass.POSSIBLE_DEFICIENCY)
 # measured blind crop naming on leaf photos, 2026-10-15 (docs/CROP_CATALOGUE_AND_HEALTH_2026-10-15.md): 15 of 56
 CROP_ID_MEASURED = {"en": "about 1 in 4", "kn": "ಸುಮಾರು 4 ರಲ್ಲಿ 1"}
@@ -201,6 +204,7 @@ T: dict[str, dict[str, str]] = {
         "too_dark": "The photo is too dark to judge.",
         "blurry": "The photo is too blurred to judge.",
         "poor_photo": "The AI found the photo quality poor (light, focus or angle).",
+        "several_items": "The photo shows several kinds of crop or produce, so it is not clear which one to judge.",
         "not_close_up": "The plant is too far away to see leaf detail.",
         "part_not_leaves": "The photo mainly shows the {part}, not the leaves; only the {part} was judged.",
         "no_ai": "No AI model was used for this photo: only colours were measured.",
@@ -254,6 +258,7 @@ T: dict[str, dict[str, str]] = {
         "too_dark": "ಫೋಟೋ ತುಂಬಾ ಕತ್ತಲಾಗಿದೆ; ನಿರ್ಣಯಿಸಲು ಆಗುವುದಿಲ್ಲ.",
         "blurry": "ಫೋಟೋ ತುಂಬಾ ಮಸುಕಾಗಿದೆ; ನಿರ್ಣಯಿಸಲು ಆಗುವುದಿಲ್ಲ.",
         "poor_photo": "AI ಪ್ರಕಾರ ಫೋಟೋದ ಗುಣಮಟ್ಟ ಕಡಿಮೆ (ಬೆಳಕು, ಫೋಕಸ್ ಅಥವಾ ಕೋನ).",
+        "several_items": "ಫೋಟೋದಲ್ಲಿ ಹಲವು ಬಗೆಯ ಬೆಳೆ ಅಥವಾ ಉತ್ಪನ್ನಗಳಿವೆ; ಯಾವುದನ್ನು ನಿರ್ಣಯಿಸಬೇಕು ಎಂಬುದು ಸ್ಪಷ್ಟವಿಲ್ಲ.",
         "not_close_up": "ಗಿಡ ತುಂಬಾ ದೂರದಲ್ಲಿದೆ; ಎಲೆಯ ವಿವರ ಕಾಣುವುದಿಲ್ಲ.",
         "part_not_leaves": "ಫೋಟೋದಲ್ಲಿ ಹೆಚ್ಚಾಗಿ {part} ಕಾಣುತ್ತಿದೆ, ಎಲೆಗಳಲ್ಲ; {part} ಅನ್ನು ಮಾತ್ರ ಪರಿಶೀಲಿಸಲಾಗಿದೆ.",
         "no_ai": "ಈ ಫೋಟೋಗೆ AI ಮಾದರಿ ಬಳಸಿಲ್ಲ: ಬಣ್ಣಗಳನ್ನು ಮಾತ್ರ ಅಳೆಯಲಾಗಿದೆ.",
@@ -318,6 +323,18 @@ def condition_score(observations: list[dict[str, str | None]], healthy_tissue: s
     return max(1, min(10, score))
 
 
+def health_percent(features: dict[str, Any]) -> float:
+    """The same rubric as condition_score on a 0-100 scale without rounding to whole points (100 = no visible
+    damage). Used for the A/B/C health category (domain.agri_taxonomy); only meaningful with enough evidence."""
+    observations = observations_of(features)
+    loss = sum(SIGN_WEIGHT[o["sign"] or ""] * EXTENT_FACTOR.get(o.get("extent") or "", 1.0) for o in observations)
+    percent = 100.0 - 10.0 * loss
+    cap = TISSUE_CAP.get(str(features.get("healthy_tissue")))
+    if cap is not None:
+        percent = min(percent, 10.0 * cap)
+    return round(max(0.0, min(100.0, percent)), 2)
+
+
 def band(score: int, has_signs: bool) -> str:
     if score >= 10 and not has_signs:
         return "none_visible"
@@ -337,7 +354,7 @@ def withheld_reason(result: HealthAssessment) -> str | None:
         return "no_ai"
     if "not_a_plant" in flags:
         return "not_a_plant"
-    if flags & {"too_dark", "blurry", "poor_photo", "not_close_up", "too_bright", "little_plant_visible"}:
+    if flags & UNCLEAR_PHOTO:
         return "photo"
     if "crop_mismatch" in flags:
         return "crop_mismatch"

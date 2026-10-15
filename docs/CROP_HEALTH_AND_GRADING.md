@@ -70,3 +70,35 @@ Stored per recorded harvest in `produce_gradings` (migration 0018). The rules ar
 
 API: `GET/PUT /crop-cycles/{id}/grading`, `POST /crop-cycles/{id}/grading/photo` (farmer only, own harvests). AI photo
 calls (crop health + grading) are limited per person per hour (`AI_PHOTO_CHECKS_PER_HOUR`).
+
+## 2026-10-16: fix for "could not analyse", identification, A/B/C health category
+
+**Root cause.** Every production photo check failed with `ai_error=invalid_response`: 5 of 5 after the cloud deploy
+(read-only check of `crop_health_analyses`). Ollama Cloud's `gemma4:31b` supports images (`/api/show`:
+completion, thinking, tools, vision) and answered correctly within 1-2 s, but it wraps its JSON in a Markdown fence
+(```json ... ```). The cloud server does not enforce the requested JSON schema for this model, and the app called
+`json.loads` on the raw text, so every answer was rejected. The fallback said "unavailable", so no fake result was
+shown. `app/providers/vision/model_json.py` now reads a bare, fenced or surrounded object. Several objects, arrays
+and broken JSON are still refused, and every field is validated as before. Produce-grading photo suggestions had the
+same failure and use the same reader.
+
+**Identification.** Without a chosen crop, the model's crop guess is matched against the whole crop catalogue in the
+database (`app/domain/agri_taxonomy.py`): name, Kannada/local name and aliases. On 2026-10-16 that was 213 items in
+17 groups, 86 with a Kannada name; admins can add crops. Each group has a parent category in English and Kannada
+(Vegetables, Fruits and nuts, Cereals and grains, Pulses and legumes, Oilseeds, Spices and condiments, Plantation and
+commercial crops, Flowers and ornamental crops, Fodder and forage crops, Roots and tubers, Medicinal and aromatic
+plants, Trees and agroforestry, Mushrooms, Other). A guess that matches no item, or two items equally (for example
+"gram"), is "not identified". So is a photo the model says shows several kinds (`items_in_photo`): the farmer is asked
+for one item per photo or to start from their crop. With a chosen crop, that crop is the item.
+
+**Health score and category.** The score runs from 0 to 100 %: how healthy the plant or produce looks in this photo.
+It uses the existing visible-sign rubric (each sign's weight x extent, 10 points = 100 %, capped when little tissue
+looks normal). It is not the AI's confidence, which is shown separately. Categories use three equal, non-overlapping
+bands: **A** above 66.66 (very good), **B** above 33.33 up to 66.66 (good), **C** 0 to 33.33 (moderate). Scores are
+clamped to 0-100 and the band is decided on the exact value. When the photo gives no health result (retake, not
+identified, several items, no AI), the result is **Unable to classify**, never a guess.
+
+**Measured, not validated.** A live check against Ollama Cloud on 5 known groundnut/seedling photos works end to end,
+and the app shows the result on the emulator for Gallery and Camera. The model still reported signs on a healthy
+groundnut leaf and sometimes names no crop ("unknown"). The scores are visual estimates, not an evaluated classifier,
+and `gemma4:31b` has not been evaluated on labelled photos.

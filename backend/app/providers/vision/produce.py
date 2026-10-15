@@ -11,7 +11,6 @@ Safety rules applied to the model's answer before anything is shown:
 
 from __future__ import annotations
 
-import json
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
@@ -21,6 +20,7 @@ import numpy as np
 
 from app.domain.crop_profiles import CropContext, crop_matches
 from app.domain.produce_grading import attributes
+from app.providers.vision.model_json import parse_model_json
 from app.providers.vision.ollama import KEEP_ALIVE, clean_description, failure_kind, jpeg_base64, unusable_photo
 
 logger = logging.getLogger(__name__)
@@ -180,7 +180,7 @@ class OllamaProduceGrader:
         }
         resp = self._client.post(f"{self._base}/api/chat", json=body)
         resp.raise_for_status()
-        parsed = json.loads(resp.json()["message"]["content"])
+        parsed = parse_model_json(resp.json()["message"]["content"])  # fenced JSON from Ollama Cloud too
         if not isinstance(parsed, dict):
             raise ValueError("not an object")
         return parsed

@@ -229,3 +229,10 @@ def test_the_hourly_limit_counts_per_user_and_slides():
     assert exc.value.code == "ai_photo_limit" and int(exc.value.headers["Retry-After"]) > 0
     clock.t += timedelta(hours=1, seconds=1)
     limit.check(a)  # the window moved on
+
+
+def test_a_fenced_cloud_answer_is_read_for_grading_too():
+    fenced = "```json\n" + json.dumps(answer()) + "\n```"
+    grader = _grader(lambda request: httpx.Response(200, json={"message": {"content": fenced}}))
+    p = grader.propose(PRODUCE, "fresh", TOMATO)
+    assert p.status == "proposed" and p.levels == {"size": 0, "maturity": 1, "damage": 1, "freshness": 0}
