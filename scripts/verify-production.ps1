@@ -9,16 +9,10 @@ function Check([string]$name, [bool]$ok, [string]$detail) {
     if ($ok) { Write-Host "PASS  $name  $detail" -ForegroundColor Green }
     else { Write-Host "FAIL  $name  $detail" -ForegroundColor Red; $script:fail++ }
 }
+. (Join-Path $PSScriptRoot "lib\http.ps1")  # Invoke-Http: status, body and headers on PowerShell 5.1 and 7
 function Call([string]$method, [string]$path, $body = $null, $headers = @{}) {
-    $args = @{ Uri = "$BaseUrl$path"; Method = $method; Headers = $headers; TimeoutSec = 120; UseBasicParsing = $true }
-    if ($null -ne $body) { $args.Body = ($body | ConvertTo-Json -Compress); $args.ContentType = "application/json" }
-    try { $r = Invoke-WebRequest @args; return @{ Status = [int]$r.StatusCode; Body = $r.Content; Headers = $r.Headers } }
-    catch [System.Net.WebException] {
-        $resp = $_.Exception.Response
-        if ($null -eq $resp) { throw }
-        $text = if ($_.ErrorDetails) { $_.ErrorDetails.Message } else { "" }  # PowerShell 5.1 keeps the body here
-        return @{ Status = [int]$resp.StatusCode; Body = $text; Headers = $resp.Headers }
-    }
+    $json = if ($null -ne $body) { $body | ConvertTo-Json -Compress } else { $null }
+    return Invoke-Http -Method $method -Uri "$BaseUrl$path" -Json $json -Headers $headers
 }
 
 Check "https" ($BaseUrl.StartsWith("https://")) $BaseUrl
@@ -35,8 +29,9 @@ Check "no SMS-code endpoints (password-only build)" ($sms.Status -eq 404) "POST 
 $cors = Call OPTIONS "/auth/me" $null @{ Origin = "https://evil.example"; "Access-Control-Request-Method" = "GET" }
 Check "browser origins refused (CORS)" (-not $cors.Headers["Access-Control-Allow-Origin"]) "preflight -> $($cors.Status)"
 $plain = $BaseUrl -replace '^https://', 'http://'
-try { $h = Invoke-WebRequest -Uri "$plain/health/live" -MaximumRedirection 0 -UseBasicParsing -TimeoutSec 60; $code = [int]$h.StatusCode }
-catch { $code = [int]$_.Exception.Response.StatusCode }
-Check "plain HTTP not served" ($code -ge 300 -and $code -lt 400) "http:// -> $code (redirect to HTTPS)"
+$h = Invoke-Http -Method GET -Uri "$plain/health/live" -NoRedirect -TimeoutSec 60
+$location = [string]$h.Headers["Location"]
+Check "plain HTTP not served" ($h.Status -ge 300 -and $h.Status -lt 400 -and $location -eq "$BaseUrl/health/live") `
+    "http:// -> $($h.Status), Location: $location (must be the same URL over HTTPS)"
 if ($fail -gt 0) { Write-Host "`n$fail check(s) FAILED" -ForegroundColor Red; exit 1 }
 Write-Host "`nAll production checks passed." -ForegroundColor Green
