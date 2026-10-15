@@ -21,10 +21,11 @@ from sqlalchemy.orm import Session
 
 from app.core.clock import Clock
 from app.core.config import Settings
-from app.core.enums import OtpPurpose, UserRole
+from app.core.enums import AccessStatus, OtpPurpose, UserRole
 from app.core.errors import (
     AuthenticationError,
     ConflictError,
+    NotFoundError,
     PermissionDeniedError,
     ProviderUnavailableError,
     TooManyRequestsError,
@@ -42,6 +43,7 @@ from app.providers.sms.base import SmsSender, mask_phone
 from app.repositories.auth import LoginAttemptRepository, OtpChallengeRepository, RefreshTokenRepository
 from app.repositories.users import UserRepository
 from app.schemas.auth import (
+    AccessUpdate,
     AdminCreateRequest,
     AuthResponse,
     CurrentUser,
@@ -62,6 +64,14 @@ logger = logging.getLogger(__name__)
 INVALID_CREDENTIALS = "Invalid phone number or password"
 WRONG_CODE = "The code is not correct"
 CHALLENGE_ENDED = "This verification has ended. Please start again."
+ACCESS_DENIED = {
+    AccessStatus.PENDING: (
+        "Your account is waiting for approval by the Harvestique team. Please try again later.",
+        "access_pending",
+    ),
+    AccessStatus.SUSPENDED: ("Your access has been suspended by the Harvestique team.", "access_suspended"),
+    AccessStatus.REVOKED: ("Your access to Harvestique has been removed.", "access_revoked"),
+}
 
 
 class AuthService:
@@ -122,6 +132,8 @@ class AuthService:
             role=UserRole.BUYER if isinstance(payload, RegisterBuyerRequest) else UserRole.FARMER,
         )
         user.registration_pending = True
+        if self._settings.new_account_access == "pending":
+            user.access_status = AccessStatus.PENDING
         if isinstance(payload, RegisterBuyerRequest):
             user.buyer_profile = BuyerProfile(**payload.profile.model_dump())
         else:
@@ -139,6 +151,10 @@ class AuthService:
         _challenge, user = self._consume(purpose, payload.challenge_id, payload.code, now)
         user.phone_verified_at = user.phone_verified_at or now
         user.registration_pending = False
+        if user.access_status is not AccessStatus.APPROVED:
+            self._session.commit()  # the number is verified and the sign-up is finished; only approval is missing
+            logger.info("phone verified (%s) user_id=%s; access %s", purpose.value, user.id, user.access_status.value)
+            self._require_access(user)
         user.last_login_at = now
         tokens = self._issue_tokens(user, family_id=None, now=now)
         self._session.commit()
@@ -285,8 +301,7 @@ class AuthService:
             self._session.commit()  # persist the failure counter before raising
             raise AuthenticationError(INVALID_CREDENTIALS, code="invalid_credentials")
 
-        if not user.is_active:
-            raise PermissionDeniedError("This account has been disabled", code="account_disabled")
+        self._require_access(user)  # before any SMS: a waiting or blocked account gets no code
 
         self._require_sms()
         self._check_send_limits(payload.phone, client, now)
@@ -322,8 +337,7 @@ class AuthService:
         user = self._users.get(token.user_id)
         if user is None:
             raise AuthenticationError("Invalid refresh token", code="invalid_refresh_token")
-        if not user.is_active:
-            raise PermissionDeniedError("This account has been disabled", code="account_disabled")
+        self._require_access(user)
 
         token.rotated_at = now
         tokens = self._issue_tokens(user, family_id=token.family_id, now=now)
@@ -352,13 +366,38 @@ class AuthService:
         user = self._users.get(claims.user_id)
         if user is None:
             raise AuthenticationError("Invalid access token", code="invalid_token")
-        if not user.is_active:
-            raise PermissionDeniedError("This account has been disabled", code="account_disabled")
+        self._require_access(user)
         if not self._refresh.session_is_live(claims.session_id, now):
             raise AuthenticationError("This session has ended; please sign in again", code="session_revoked")
         return CurrentUser(user_id=user.id, role=user.role, session_id=claims.session_id)
 
+    # ------------------------------------------------------ tester access
+
+    def set_access(self, admin: CurrentUser, user_id: uuid.UUID, payload: AccessUpdate) -> UserRead:
+        """Admin decision on one account. Takes effect on that person's next request (every request checks it)."""
+        user = self._users.get(user_id)
+        if user is None:
+            raise NotFoundError("User not found")
+        if user.role is UserRole.ADMIN:
+            raise PermissionDeniedError("Admin accounts cannot be changed here", code="admin_access_fixed")
+        now = self._clock.now()
+        user.access_status = AccessStatus(payload.status)
+        user.access_changed_at = now
+        if user.access_status is AccessStatus.REVOKED:
+            self._refresh.revoke_all_for_user(user.id, now)
+        self._session.commit()
+        logger.info("access set to %s user_id=%s by admin_id=%s", payload.status, user.id, admin.user_id)
+        return UserRead.model_validate(user)
+
     # ------------------------------------------------------------ helpers
+
+    @staticmethod
+    def _require_access(user: User) -> None:
+        if not user.is_active:
+            raise PermissionDeniedError("This account has been disabled", code="account_disabled")
+        denied = ACCESS_DENIED.get(user.access_status)
+        if denied is not None:
+            raise PermissionDeniedError(denied[0], code=denied[1])
 
     def _build_user(self, *, phone: str, email: str | None, password: str, full_name: str, role: UserRole) -> User:
         if self._users.get_by_phone(phone) is not None:

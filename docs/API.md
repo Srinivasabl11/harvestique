@@ -16,7 +16,7 @@ Base path `/api/v1`. Interactive docs: `/docs` (Swagger UI) and `/openapi.json` 
   No endpoint returns or computes a market price.
 
 
-**142 operations.**
+**143 operations.**
 
 
 ## activities
@@ -34,6 +34,7 @@ Base path `/api/v1`. Interactive docs: `/docs` (Swagger UI) and `/openapi.json` 
 | Method | Path | Roles | Request | Response | Summary |
 |---|---|---|---|---|---|
 | `GET` | `/admin/users` | admin | - | Page_UserRead_ | List users (admin only) |
+| `POST` | `/admin/users/{user_id}/access` | admin | AccessUpdate (json) | UserRead | Approve, suspend or revoke a tester's access (admin only) |
 
 ## assistant, voice and crop health
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from app.core.enums import UserRole
+from app.core.enums import AccessStatus, UserRole
 from app.core.errors import NotFoundError
 from app.repositories.users import UserRepository
 from app.schemas.auth import BuyerProfileRead, BuyerProfileUpdate, FarmerProfileRead, FarmerProfileUpdate, UserRead
@@ -51,8 +51,10 @@ class UserService:
         self._users.session.commit()
         return BuyerProfileRead.model_validate(user.buyer_profile)
 
-    def list_users(self, *, limit: int, offset: int, role: UserRole | None) -> Page[UserRead]:
-        items, total = self._users.list_page(limit=limit, offset=offset, role=role)
+    def list_users(
+        self, *, limit: int, offset: int, role: UserRole | None, access: AccessStatus | None = None
+    ) -> Page[UserRead]:
+        items, total = self._users.list_page(limit=limit, offset=offset, role=role, access=access)
         return Page[UserRead](
             items=[UserRead.model_validate(u) for u in items], total=total, limit=limit, offset=offset
         )

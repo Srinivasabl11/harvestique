@@ -695,6 +695,8 @@ Constraints: CHECK `ck_reminders_recurrence`: `reminders.recurrence IN (__[POSTC
 | `full_name` | VARCHAR(120) | no |  |
 | `role` | VARCHAR(16) | no |  |
 | `is_active` | BOOLEAN | no |  |
+| `access_status` | VARCHAR(16) | no |  |
+| `access_changed_at` | DATETIME | yes |  |
 | `last_login_at` | DATETIME | yes |  |
 | `phone_verified_at` | DATETIME | yes |  |
 | `registration_pending` | BOOLEAN | no |  |
@@ -703,7 +705,7 @@ Constraints: CHECK `ck_reminders_recurrence`: `reminders.recurrence IN (__[POSTC
 | `created_at` | DATETIME | no |  |
 | `updated_at` | DATETIME | no |  |
 
-Constraints: CHECK `ck_users_user_role`: `users.role IN (__[POSTCOMPILE_param_1])`; UNIQUE (email); UNIQUE (phone)
+Constraints: CHECK `ck_users_access_status`: `users.access_status IN (__[POSTCOMPILE_param_1])`; CHECK `ck_users_user_role`: `users.role IN (__[POSTCOMPILE_param_1])`; UNIQUE (email); UNIQUE (phone)
 
 ### `weather_daily`
 

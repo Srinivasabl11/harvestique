@@ -11,6 +11,15 @@ class UserRole(StrEnum):
     ADMIN = "admin"
 
 
+class AccessStatus(StrEnum):
+    """Whether an admin lets this account use the app (tester access). Checked on every sign-in and request."""
+
+    APPROVED = "approved"
+    PENDING = "pending"  # signed up, waiting for an admin
+    SUSPENDED = "suspended"  # temporarily blocked; sessions are kept, so approving again resumes them
+    REVOKED = "revoked"  # access removed; every session is signed out
+
+
 class OtpPurpose(StrEnum):
     REGISTER = "register"
     LOGIN = "login"

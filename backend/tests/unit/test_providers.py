@@ -90,3 +90,25 @@ def test_android_gateway_posts_to_the_configured_path(base, path, url):
     sms.send("+919900000000", "x")
     assert str(seen[0].url) == url
     assert seen[0].headers["Authorization"].startswith("Basic ")
+
+
+def test_ollama_cloud_without_a_key_is_reported_off_not_ready():
+    from app.core.config import Settings
+    from app.providers.llm.fake import DisabledLLMProvider
+    from app.providers.registry import build_crop_health_classifier
+    from app.providers.vision.base import ColourHeuristicClassifier
+    from app.providers.vision.ollama import OllamaVisionClassifier
+
+    cloud = {
+        "llm_provider": "ollama",
+        "crop_health_classifier": "ollama_vision",
+        "ollama_base_url": "https://ollama.com",
+    }
+    no_key = Settings(_env_file=None, **cloud)
+    assert isinstance(build_llm_provider(no_key), DisabledLLMProvider)
+    assert isinstance(build_crop_health_classifier(no_key), ColourHeuristicClassifier)
+    with_key = Settings(_env_file=None, ollama_api_key="k", **cloud)
+    assert build_llm_provider(with_key).name == "ollama"
+    assert isinstance(build_crop_health_classifier(with_key), OllamaVisionClassifier)
+    local = Settings(_env_file=None, llm_provider="ollama")  # local Ollama needs no key
+    assert build_llm_provider(local).name == "ollama"

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import String, false, true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.enums import UserRole
+from app.core.enums import AccessStatus, UserRole
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin, enum_column
 
 if TYPE_CHECKING:
@@ -24,6 +24,13 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     full_name: Mapped[str] = mapped_column(String(120))
     role: Mapped[UserRole] = mapped_column(enum_column(UserRole, name="user_role", length=16))
     is_active: Mapped[bool] = mapped_column(default=True, server_default=true())
+    # Admin-controlled tester access (see AccessStatus). Accounts that existed before this column are approved.
+    access_status: Mapped[AccessStatus] = mapped_column(
+        enum_column(AccessStatus, name="access_status", length=16),
+        default=AccessStatus.APPROVED,
+        server_default=AccessStatus.APPROVED.value,
+    )
+    access_changed_at: Mapped[datetime | None]
     last_login_at: Mapped[datetime | None]
     # Set when the person proves they receive SMS on `phone` (registration or login code). Accounts created before
     # phone verification existed keep NULL until their next login, which verifies them.

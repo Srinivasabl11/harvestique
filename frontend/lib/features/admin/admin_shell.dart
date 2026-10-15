@@ -15,7 +15,7 @@ class AdminShell extends StatefulWidget {
 
 class _AdminShellState extends State<AdminShell> {
   int _index = 0;
-  static const _titles = ['Dashboard', 'Orders', 'Quality queue', 'Hubs'];
+  static const _titles = ['Dashboard', 'Orders', 'Quality queue', 'Hubs', 'Testers'];
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +23,7 @@ class _AdminShellState extends State<AdminShell> {
       appBar: AppBar(title: Text(_titles[_index]), actions: const [NotificationBell(), AccountMenu()]),
       body: IndexedStack(
         index: _index,
-        children: const [DashboardScreen(), OrdersScreen(), QualityQueueScreen(), HubsScreen()],
+        children: const [DashboardScreen(), OrdersScreen(), QualityQueueScreen(), HubsScreen(), TestersScreen()],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
@@ -33,6 +33,7 @@ class _AdminShellState extends State<AdminShell> {
           NavigationDestination(icon: Icon(Icons.receipt_long_outlined), label: 'Orders'),
           NavigationDestination(icon: Icon(Icons.fact_check_outlined), label: 'Quality'),
           NavigationDestination(icon: Icon(Icons.warehouse_outlined), label: 'Hubs'),
+          NavigationDestination(icon: Icon(Icons.verified_user_outlined), label: 'Testers'),
         ],
       ),
     );

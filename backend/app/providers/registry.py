@@ -10,6 +10,9 @@ Selecting one before it exists fails fast at startup with a clear message.
 
 from __future__ import annotations
 
+import logging
+from urllib.parse import urlparse
+
 import httpx
 
 from app.core.config import Settings
@@ -32,6 +35,19 @@ from app.providers.vision.ollama import OllamaVisionClassifier
 from app.providers.weather.base import WeatherProvider
 from app.providers.weather.fake import FakeWeatherProvider
 from app.providers.weather.open_meteo import OpenMeteoWeatherProvider
+
+logger = logging.getLogger(__name__)
+
+
+def _hosted_ollama_without_key(settings: Settings) -> bool:
+    """Ollama Cloud lists its models publicly but answers nothing without a key: treat that as "not configured"
+    (health shows it, the assistant and photo check use their non-AI paths) instead of a server that looks ready."""
+    host = urlparse(settings.ollama_base_url).hostname or ""
+    hosted = host == "ollama.com" or host.endswith(".ollama.com")
+    if hosted and settings.ollama_api_key is None:
+        logger.warning("OLLAMA_BASE_URL is Ollama Cloud but OLLAMA_API_KEY is not set: AI features are off")
+        return True
+    return False
 
 
 def _not_yet(kind: str, value: str, phase: str) -> ProviderUnavailableError:
@@ -79,6 +95,8 @@ def build_llm_provider(settings: Settings) -> LLMProvider:
         return DisabledLLMProvider()
     if settings.llm_provider == "fake":
         return FakeLLMProvider()
+    if _hosted_ollama_without_key(settings):
+        return DisabledLLMProvider()
     return OllamaLLMProvider(
         client=_ollama_client(settings, settings.llm_timeout_seconds),
         base_url=settings.ollama_base_url,
@@ -98,7 +116,7 @@ def build_speech_provider(settings: Settings) -> OnDeviceSpeech | FakeSpeech:
 
 
 def build_crop_health_classifier(settings: Settings) -> CropHealthClassifier:
-    if settings.crop_health_classifier == "ollama_vision":
+    if settings.crop_health_classifier == "ollama_vision" and not _hosted_ollama_without_key(settings):
         return OllamaVisionClassifier(
             client=_ollama_client(settings, settings.vision_timeout_seconds),
             base_url=settings.ollama_base_url,

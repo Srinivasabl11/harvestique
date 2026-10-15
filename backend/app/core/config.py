@@ -76,6 +76,10 @@ class Settings(BaseSettings):
     otp_max_sends_per_phone_per_hour: int = Field(default=5, ge=1)
     otp_max_sends_per_client_per_hour: int = Field(default=20, ge=1)
 
+    # Tester access: "pending" makes every NEW sign-up wait until an admin approves it (admin app > Testers, or
+    # POST /admin/users/{id}/access). Existing accounts are never changed by this setting.
+    new_account_access: Literal["approved", "pending"] = "approved"
+
     # Fresh installs: fill an EMPTY crop catalog with the standard crops at startup (never in tests, never
     # when any crop already exists). Without crops, farmers cannot add a crop to a plot.
     seed_crop_catalog_on_startup: bool = True

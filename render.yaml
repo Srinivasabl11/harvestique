@@ -32,6 +32,10 @@ services:
         value: "2"
       - key: JWT_SECRET_KEY
         generateValue: true
+      # Tester access: new sign-ups wait until an admin approves them (admin app > Testers). Existing accounts keep
+      # their access. Set to "approved" for open sign-up.
+      - key: NEW_ACCOUNT_ACCESS
+        value: pending
       - key: WEATHER_PROVIDER
         value: open_meteo
       - key: MARKET_PRICE_PROVIDER # set to data_gov_in and add DATA_GOV_IN_API_KEY for live mandi prices

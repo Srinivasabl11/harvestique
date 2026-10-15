@@ -187,3 +187,103 @@ class _HubsScreenState extends ConsumerState<HubsScreen> {
     );
   }
 }
+
+/// Tester access: approve new sign-ups, suspend (sessions kept) or revoke (signed out) individual accounts.
+/// The server enforces the decision on every request; this screen only asks for it.
+class TestersScreen extends ConsumerStatefulWidget {
+  const TestersScreen({super.key});
+
+  @override
+  ConsumerState<TestersScreen> createState() => _TestersScreenState();
+}
+
+class _TestersScreenState extends ConsumerState<TestersScreen> {
+  static const _filters = {'pending': 'Waiting', 'approved': 'Approved', 'suspended': 'Suspended', 'revoked': 'Revoked'};
+  static const _actions = {'approved': 'Approve', 'suspended': 'Suspend', 'revoked': 'Revoke access'};
+  static const _done = {'approved': 'approved', 'suspended': 'suspended', 'revoked': 'access revoked'};
+  String _filter = 'pending';
+  Key _key = UniqueKey();
+
+  Future<void> _set(Map<String, dynamic> user, String status) async {
+    if (status == 'revoked') {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Revoke access?'),
+          content: Text('${user.str('full_name')} is signed out on every phone and cannot sign in until approved again.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Revoke')),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
+    }
+    final api = ref.read(apiProvider);
+    await runAction(
+      context,
+      () => api.post('/admin/users/${user.str('id')}/access', body: {'status': status}),
+      success: '${user.str('full_name')}: ${_done[status]}',
+    );
+    if (mounted) setState(() => _key = UniqueKey());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final api = ref.watch(apiProvider);
+    return Column(
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+          child: Wrap(
+            spacing: 8,
+            children: [
+              for (final f in _filters.entries)
+                ChoiceChip(
+                  label: Text(f.value),
+                  selected: _filter == f.key,
+                  onSelected: (_) => setState(() {
+                    _filter = f.key;
+                    _key = UniqueKey();
+                  }),
+                ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Reloadable<List<Map<String, dynamic>>>(
+            key: _key,
+            load: () => live(api.getPage('/admin/users', query: {'access': _filter})),
+            isEmpty: (u) => u.isEmpty,
+            emptyMessage: _filter == 'pending' ? 'Nobody is waiting for approval.' : 'No accounts here.',
+            builder: (context, users, reload) => ListView(
+              children: [
+                for (final u in users)
+                  Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    child: ListTile(
+                      leading: Icon(u.str('role') == 'buyer' ? Icons.storefront_outlined : Icons.agriculture_outlined),
+                      title: Text(u.str('full_name')),
+                      subtitle: Text('${u.str('role')} · ${u.str('phone')}\nJoined ${dateTime(u.str('created_at'))}'),
+                      isThreeLine: true,
+                      trailing: u.str('role') == 'admin'
+                          ? null
+                          : PopupMenuButton<String>(
+                              tooltip: 'Change access',
+                              onSelected: (s) => _set(u, s),
+                              itemBuilder: (_) => [
+                                for (final a in _actions.entries)
+                                  if (a.key != u.str('access_status')) PopupMenuItem(value: a.key, child: Text(a.value)),
+                              ],
+                            ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

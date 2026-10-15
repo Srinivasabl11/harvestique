@@ -9,7 +9,7 @@ from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, EmailStr, Field, StringConstraints, field_validator
 
-from app.core.enums import BuyerType, OtpPurpose, PreferredLanguage, UserRole
+from app.core.enums import AccessStatus, BuyerType, OtpPurpose, PreferredLanguage, UserRole
 from app.core.phone import normalize_phone
 from app.schemas.base import PatchModel, StrictModel
 
@@ -121,6 +121,12 @@ class AdminCreateRequest(StrictModel):
     email: EmailStr | None = None
 
 
+class AccessUpdate(StrictModel):
+    """Admin decision on a tester account: approve (or re-approve), suspend (keeps sessions), revoke (signs out)."""
+
+    status: Literal["approved", "suspended", "revoked"]
+
+
 # -------------------------------------------------------------- responses
 
 
@@ -154,6 +160,7 @@ class UserRead(BaseModel):
     full_name: str
     role: UserRole
     is_active: bool
+    access_status: AccessStatus = AccessStatus.APPROVED
     created_at: datetime
     last_login_at: datetime | None
     phone_verified_at: datetime | None = None
