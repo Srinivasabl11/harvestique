@@ -61,3 +61,32 @@ def test_open_meteo_is_built_when_configured(settings):
     assert isinstance(provider, OpenMeteoWeatherProvider) and isinstance(provider, WeatherProvider)
     predictor = build_prediction_provider(settings)
     assert predictor.name == "hybrid-rules" and predictor.version
+
+
+def test_hosted_ollama_gets_the_api_key_and_local_does_not():
+    from app.core.config import Settings
+    from app.providers.registry import _ollama_client
+
+    hosted = Settings(_env_file=None, ollama_base_url="https://ollama.com", ollama_api_key="k-123")
+    assert _ollama_client(hosted, 5.0).headers["Authorization"] == "Bearer k-123"
+    assert "Authorization" not in _ollama_client(Settings(_env_file=None), 5.0).headers
+
+
+@pytest.mark.parametrize(
+    ("base", "path", "url"),
+    [
+        ("http://192.168.1.50:8080", "/message", "http://192.168.1.50:8080/message"),
+        ("https://api.sms-gate.app/3rdparty/v1/", "messages", "https://api.sms-gate.app/3rdparty/v1/messages"),
+    ],
+)
+def test_android_gateway_posts_to_the_configured_path(base, path, url):
+    import httpx
+
+    from app.providers.sms.providers import AndroidGatewaySms
+
+    seen = []
+    client = httpx.Client(transport=httpx.MockTransport(lambda r: seen.append(r) or httpx.Response(202)))
+    sms = AndroidGatewaySms(client=client, base_url=base, username="u", password="p", message_path=path)
+    sms.send("+919900000000", "x")
+    assert str(seen[0].url) == url
+    assert seen[0].headers["Authorization"].startswith("Basic ")

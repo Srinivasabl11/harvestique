@@ -33,6 +33,7 @@ docker compose up -d --build
 # Readiness: http://localhost:8000/api/v1/health/ready
 ```
 Full setup, Flutter and validation steps: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+Hosted production (Render + Neon, free tier) and the shareable release APK: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Status
 - **Phase 0** — architecture & scaffold: complete.

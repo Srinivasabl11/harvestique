@@ -1,0 +1,4 @@
+{
+  "API_BASE_URL": "https://harvestique-api.onrender.com/api/v1",
+  "API_RECEIVE_TIMEOUT_SECONDS": "90"
+}

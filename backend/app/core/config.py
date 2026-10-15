@@ -9,7 +9,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 INSECURE_DEFAULT_SECRET = "change-me-in-production-0123456789abcdef"  # noqa: S105 - placeholder, rejected in production
@@ -61,7 +61,10 @@ class Settings(BaseSettings):
     #                  local server mode). No SMS company account, but your mobile plan's SMS charges apply.
     #   disabled       no SMS: registration and login cannot complete (useful only to lock a server down).
     sms_provider: Literal["dev_console", "android_gateway", "disabled"] = "dev_console"
-    sms_gateway_url: str | None = None  # e.g. http://192.168.1.50:8080 (the phone running the gateway app)
+    sms_gateway_url: str | None = None  # local: http://192.168.1.50:8080, cloud: https://api.sms-gate.app/3rdparty/v1
+    # Path appended to SMS_GATEWAY_URL: "/message" for the app's Local Server mode, "/messages" for its free Cloud
+    # Server (the phone then needs only mobile data, not the same network as this server).
+    sms_gateway_message_path: str = "/message"
     sms_gateway_username: str | None = None
     sms_gateway_password: SecretStr | None = None
     sms_timeout_seconds: float = Field(default=10.0, gt=0)
@@ -94,6 +97,8 @@ class Settings(BaseSettings):
 
     llm_provider: Literal["ollama", "fake", "disabled"] = "disabled"
     ollama_base_url: str = "http://localhost:11434"
+    # Only for a hosted Ollama server (e.g. Ollama Cloud, OLLAMA_BASE_URL=https://ollama.com): sent as a Bearer token.
+    ollama_api_key: SecretStr | None = None
     ollama_model: str = "llama3.2:3b"
     llm_timeout_seconds: float = 60.0
     # What the local model may do in the assistant (the answer always comes from controlled tools):
@@ -119,6 +124,16 @@ class Settings(BaseSettings):
     # v1: the evaluated production prompt. v2: candidate prompt (normal leaf features are not damage; colour and extent
     # of each sign), see docs/CROP_PHOTO_ANALYSIS_2026-10-15.md for its held-out comparison before switching.
     crop_health_prompt_version: Literal["v1", "v2"] = "v1"
+
+    @field_validator("database_url")
+    @classmethod
+    def _use_psycopg3_driver(cls, url: str) -> str:
+        """Hosted databases (Neon, Render, Heroku) give postgres:// or postgresql:// URLs, which SQLAlchemy maps to
+        psycopg2; only psycopg 3 is installed."""
+        for prefix in ("postgres://", "postgresql://"):
+            if url.startswith(prefix):
+                return "postgresql+psycopg://" + url[len(prefix) :]
+        return url
 
     @model_validator(mode="after")
     def _reject_insecure_production_config(self) -> Settings:

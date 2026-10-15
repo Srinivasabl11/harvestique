@@ -68,13 +68,19 @@ def build_prediction_provider(settings: Settings) -> PredictionProvider:
     raise _not_yet("Prediction", settings.prediction_provider, "a future trained model")
 
 
+def _ollama_client(settings: Settings, timeout: float) -> httpx.Client:
+    """A hosted Ollama server (Ollama Cloud) needs its API key; a local one needs nothing."""
+    key = settings.ollama_api_key.get_secret_value() if settings.ollama_api_key else None
+    return httpx.Client(timeout=timeout, headers={"Authorization": f"Bearer {key}"} if key else None)
+
+
 def build_llm_provider(settings: Settings) -> LLMProvider:
     if settings.llm_provider == "disabled":
         return DisabledLLMProvider()
     if settings.llm_provider == "fake":
         return FakeLLMProvider()
     return OllamaLLMProvider(
-        client=httpx.Client(timeout=settings.llm_timeout_seconds),
+        client=_ollama_client(settings, settings.llm_timeout_seconds),
         base_url=settings.ollama_base_url,
         model=settings.ollama_model,
     )
@@ -94,7 +100,7 @@ def build_speech_provider(settings: Settings) -> OnDeviceSpeech | FakeSpeech:
 def build_crop_health_classifier(settings: Settings) -> CropHealthClassifier:
     if settings.crop_health_classifier == "ollama_vision":
         return OllamaVisionClassifier(
-            client=httpx.Client(timeout=settings.vision_timeout_seconds),
+            client=_ollama_client(settings, settings.vision_timeout_seconds),
             base_url=settings.ollama_base_url,
             model=settings.ollama_vision_model,
             generic_spots_uncertain=settings.crop_health_generic_spots_uncertain,
@@ -114,5 +120,6 @@ def build_sms_sender(settings: Settings, http: httpx.Client | None = None) -> Sm
             base_url=settings.sms_gateway_url,
             username=settings.sms_gateway_username,
             password=settings.sms_gateway_password.get_secret_value(),
+            message_path=settings.sms_gateway_message_path,
         )
     return DisabledSms()

@@ -19,5 +19,6 @@ USER appuser
 
 EXPOSE 8000
 
-# Dev convenience: apply migrations then start the API.
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000"]
+# Apply migrations (additive only; never drops data) then start the API. Hosting platforms set $PORT (Render: 10000);
+# local Docker Compose uses 8000. --proxy-headers: behind an HTTPS proxy, per-client OTP limits need the real client IP.
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:create_app --factory --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]

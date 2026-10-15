@@ -53,3 +53,15 @@ def test_development_defaults_to_the_labelled_console_otp_mode():
 def test_android_gateway_needs_its_address_and_credentials():
     with pytest.raises(ValidationError, match="SMS_GATEWAY_URL"):
         Settings(_env_file=None, sms_provider="android_gateway", sms_gateway_url="http://phone:8080")
+
+
+@pytest.mark.parametrize(
+    ("given", "expected"),
+    [
+        ("postgres://u:p@h/db?sslmode=require", "postgresql+psycopg://u:p@h/db?sslmode=require"),
+        ("postgresql://u:p@h/db", "postgresql+psycopg://u:p@h/db"),
+        ("postgresql+psycopg://u:p@h/db", "postgresql+psycopg://u:p@h/db"),
+    ],
+)
+def test_hosted_database_urls_use_psycopg3(given, expected):
+    assert Settings(_env_file=None, database_url=given).database_url == expected

@@ -13,6 +13,7 @@ flutter test
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api/v1          # emulator
 flutter build apk --debug --dart-define=API_BASE_URL=http://192.168.29.200:8000/api/v1   # phone on the same Wi-Fi
 flutter build apk --dart-define=API_BASE_URL=https://<your-server>/api/v1
+# shareable release APK for the hosted server: scriptsuild-release-apk.ps1 (docs/DEPLOYMENT.md)
 ```
 
 `flutter create .` does not overwrite existing files, so `lib/`, `test/`, `pubspec.yaml` and both

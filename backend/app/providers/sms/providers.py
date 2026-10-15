@@ -29,16 +29,19 @@ class DevConsoleSms:
 class AndroidGatewaySms:
     """Sends through an Android phone running the open-source 'SMS Gateway for Android' app (Apache-2.0,
     https://github.com/capcom6/android-sms-gateway) in Local Server mode: POST http://<phone>:8080/message with Basic
-    authentication. No SMS company account is needed, but every message is a normal SMS from that phone's SIM, so
-    the mobile plan's SMS charges and daily limits apply. The phone must be on, online and reachable from the server.
+    authentication. Its free Cloud Server mode works the same way at https://api.sms-gate.app/3rdparty/v1/messages, so
+    the phone needs only mobile data. No SMS company account is needed, but every message is a normal SMS from that
+    phone's SIM, so the mobile plan's SMS charges and daily limits apply. The phone must be on and online.
     """
 
     name = "android_gateway"
     exposes_codes = False
 
-    def __init__(self, *, client: httpx.Client, base_url: str, username: str, password: str) -> None:
+    def __init__(
+        self, *, client: httpx.Client, base_url: str, username: str, password: str, message_path: str = "/message"
+    ) -> None:
         self._client = client
-        self._url = base_url.rstrip("/") + "/message"
+        self._url = base_url.rstrip("/") + "/" + message_path.lstrip("/")
         self._auth = (username, password)
 
     def is_enabled(self) -> bool:
