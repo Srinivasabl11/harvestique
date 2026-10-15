@@ -1,0 +1,6 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Debug only: allow HTTP to the local dev backend (10.0.2.2 / LAN IP).
+         Release builds must use HTTPS. Pre-created so `flutter create .` keeps it. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <application android:usesCleartextTraffic="true"/>
+</manifest>

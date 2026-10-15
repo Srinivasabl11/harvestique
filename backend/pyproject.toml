@@ -1,0 +1,56 @@
+[project]
+name = "harvestique-backend"
+version = "0.1.0"
+description = "Harvestique - Dynamic Predictive Harvest Pooling backend"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "integration: needs a real PostgreSQL (set TEST_DATABASE_URL)",
+    "ollama: needs a running local Ollama server",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "RUF", "SIM"]
+ignore = ["S101"]  # assert is fine in tests
+
+[tool.ruff.lint.isort]
+known-third-party = ["alembic"]
+known-first-party = ["app"]
+
+[tool.ruff.lint.per-file-ignores]
+# The planning engine builds long, human-readable explanations that intentionally use "×" and "–".
+"app/domain/planning/*.py" = ["E501", "RUF001"]
+"app/domain/prediction/*.py" = ["E501", "RUF001"]
+"app/domain/pooling/*.py" = ["E501", "RUF001"]
+"app/domain/assistant/*.py" = ["E501", "RUF001"]
+"app/services/assistant.py" = ["E501", "RUF001"]
+"app/domain/vision.py" = ["E501", "RUF001"]
+"app/services/media.py" = ["E501"]
+"app/api/v1/{marketplace,engagement,assistant}.py" = ["E501"]  # one-line route signatures
+"app/services/{marketplace,insights}.py" = ["E501"]  # bilingual advice table  # tool registry table  # bilingual message tables and patterns
+"app/cli/pooling_experiment.py" = ["E501"]
+"app/cli/demo.py" = ["E501"]
+"app/cli/gen_docs.py" = ["E501"]  # scripted request bodies  # fixed-width results table
+"tests/**" = ["S105", "S106", "S311"]  # S311: seeded random.Random for reproducible test data is intentional
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+exclude = ["alembic/"]
+
+[[tool.mypy.overrides]]
+module = ["scipy", "scipy.*"]
+ignore_missing_imports = true  # SciPy ships no type stubs
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false

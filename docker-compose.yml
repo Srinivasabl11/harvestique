@@ -1,0 +1,104 @@
+# Harvestique local development stack.
+#   docker compose up -d --build          -> db + backend
+#   docker compose --profile ai up -d     -> also run Ollama in Docker (CPU; native Windows Ollama is usually faster)
+name: harvestique
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-harvestique}
+      POSTGRES_USER: ${POSTGRES_USER:-harvestique}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-harvestique}
+    ports:
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-harvestique}:${POSTGRES_PASSWORD:-harvestique}@db:5432/${POSTGRES_DB:-harvestique}
+      OLLAMA_BASE_URL: ${OLLAMA_DOCKER_URL:-http://host.docker.internal:11434}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${BACKEND_HOST_PORT:-8000}:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/v1/health/live').status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  # ISOLATED MANUAL-TEST STACK (farmer-buyer phone tests). Own database container and volume, so test accounts and
+  # dates never touch the live data. Quantities are SIMULATED: the demo predictor echoes the farmer's own estimate
+  # (kg/acre x area) exactly, so "100 kg" stays 100 kg. Start/stop only this profile:
+  #   docker compose --profile manualtest up -d --build db-manualtest backend-manualtest
+  #   docker compose --profile manualtest stop db-manualtest backend-manualtest
+  #   docker compose --profile manualtest down -v   # also deletes the TEST data (live volume untouched)
+  db-manualtest:
+    image: postgres:16-alpine
+    profiles: ["manualtest"]
+    restart: "no"
+    environment:
+      POSTGRES_DB: harvestique_manualtest
+      POSTGRES_USER: harvestique
+      POSTGRES_PASSWORD: manualtest-only
+    volumes:
+      - pgdata-manualtest:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U harvestique -d harvestique_manualtest"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend-manualtest:
+    image: harvestique-backend-manualtest
+    build:
+      context: ./backend
+    profiles: ["manualtest"]
+    restart: "no"
+    environment:
+      APP_ENV: development
+      DATABASE_URL: postgresql+psycopg://harvestique:manualtest-only@db-manualtest:5432/harvestique_manualtest
+      JWT_SECRET_KEY: manualtest-only-not-a-real-secret-0123456789abcdef
+      CORS_ORIGINS: '["*"]'
+      SMS_PROVIDER: dev_console
+      PREDICTION_PROVIDER: demo_scripted
+      WEATHER_PROVIDER: fake
+      LLM_PROVIDER: disabled
+      MARKET_PRICE_PROVIDER: disabled
+    depends_on:
+      db-manualtest:
+        condition: service_healthy
+    ports:
+      - "${MANUALTEST_HOST_PORT:-8001}:8000"
+
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["ai"]
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+
+volumes:
+  pgdata:
+  pgdata-manualtest:
+  ollama:

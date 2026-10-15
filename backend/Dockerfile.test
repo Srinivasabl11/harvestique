@@ -1,0 +1,5 @@
+# Test runner image: the backend image plus the development tools (pytest, ruff, mypy).
+# Built and used by scripts/test-backend.ps1; nothing here runs in production.
+FROM harvestique-backend
+COPY requirements.txt requirements-dev.txt /tmp/req/
+RUN pip install -q --user -r /tmp/req/requirements-dev.txt
