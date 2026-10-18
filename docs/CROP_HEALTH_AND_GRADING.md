@@ -84,7 +84,7 @@ same failure and use the same reader.
 
 **Identification.** Without a chosen crop, the model's crop guess is matched against the whole crop catalogue in the
 database (`app/domain/agri_taxonomy.py`): name, Kannada/local name and aliases. On 2026-10-16 that was 213 items in
-17 groups, 86 with a Kannada name; admins can add crops. Each group has a parent category in English and Kannada
+18 groups, 86 with a Kannada name; admins can add crops. Each group has a parent category in English and Kannada
 (Vegetables, Fruits and nuts, Cereals and grains, Pulses and legumes, Oilseeds, Spices and condiments, Plantation and
 commercial crops, Flowers and ornamental crops, Fodder and forage crops, Roots and tubers, Medicinal and aromatic
 plants, Trees and agroforestry, Mushrooms, Other). A guess that matches no item, or two items equally (for example
