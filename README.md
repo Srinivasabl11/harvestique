@@ -70,28 +70,160 @@ generated endpoint list for `main` is [docs/API.md](docs/API.md) (142 operations
 
 ## 2. Screenshots
 
-These are genuine screenshots of the Android app (debug build on the Android emulator, 2026-10-16). It was signed in
-with test accounts on a throwaway local server. The images are resized but not edited. The test farmer had no farm
-yet, so Home shows "Get started", and the buyer Market had no supply on offer.
+All images are genuine screenshots of the Android app, resized for the web but otherwise not edited.
 
-> These screenshots come from the **`deploy/free-tier-production`** branch. On `main` the screens have the same
-> layout but show the earlier Karnataka-flag artwork instead of the seedling photo. The crop-health card on `main`
-> shows "Most likely: <category>" with category bars, not the A/B/C card shown here.
+* **Emulator set** (first five images): debug build on the Android emulator, 2026-10-16, test accounts on a
+  throwaway local server.
+* **Phone set** (everything else): an Android phone, mostly 2026-10-25, signed in with the project author's test
+  accounts. All farms, crops, demands and orders are test data. One farm (`f1`, 1 acre), one tomato crop and a
+  test buyer ("vasa business").
 
-| Sign-in | Farmer Home | Buyer Market |
+> **Branch:** both sets come from the **`deploy/free-tier-production`** build, not `main`. On `main` the screens
+> have the same layout but show the earlier Karnataka-flag artwork instead of the seedling photo. Screens or
+> details marked **deployment branch only** do not exist on `main` (checked against `main`'s app source). The
+> crop-health card on `main` shows "Most likely: <category>" with category bars, not the A/B/C card shown here.
+>
+> **Privacy:** screenshots showing full mobile numbers are not published. That covers sign-in screens with a typed
+> number, the admin Testers list and the change-password screen.
+
+**Gallery:** [Sign-in and accounts](#sign-in-and-accounts) ·
+[Farmer home and guide](#farmer-home-and-guide) · [Farm, plots and crops](#farm-plots-and-crops) ·
+[Predicted supply and the farmer's market](#predicted-supply-and-the-farmers-market) ·
+[Buyer: market, demands, orders, traceability](#buyer-market-demands-orders-traceability) ·
+[Crop-health photo check](#crop-health-photo-check) ·
+[Assistant and voice](#assistant-and-voice) · [Reminders and account](#reminders-and-account) ·
+[Admin](#admin)
+
+### Sign-in and accounts
+
+| **Sign-in** (emulator) | **Create account: farmer** | **Create account: buyer** |
 |---|---|---|
-| ![Sign-in screen with the seedling logo](docs/images/app-sign-in.png) | ![Farmer Home with a Kannada quote over the seedling photo](docs/images/app-farmer-home.png) | ![Buyer Market screen with the supply search](docs/images/app-buyer-market.png) |
+| <img src="docs/images/app-sign-in.png" width="240" alt="Sign-in screen with the seedling logo, country code, mobile number and password fields"> | <img src="docs/images/create-account-farmer.jpg" width="240" alt="Create account form with Farmer selected: full name, mobile number, password, optional district and assistant language"> | <img src="docs/images/create-account-buyer.jpg" width="240" alt="Create account form with Buyer selected, adding business name and business type Retailer"> |
+| Phone number and password. | The language chosen here is used by the assistant and voice. The note "The Harvestique team checks each new account" is **deployment branch only**. | Buyers also give a business name and type. The approval note is **deployment branch only**. |
 
-| Crop health: result (Gallery photo) | Crop health: not a crop (Camera photo) |
+| **Sign-in code (development mode)** |
+|---|
+| <img src="docs/images/sign-in-code-development-mode.jpg" width="240" alt="Enter your code screen in development mode: the 6-digit code is shown on screen because the server has no SMS provider; the phone number is masked"> |
+| `main`'s SMS-code step, from an earlier build. Without an SMS provider the development server shows the code on screen. The number is masked by the app. Not in the deployment branch, which removed SMS codes. |
+
+### Farmer home and guide
+
+| **Home: Kannada quote** | **Home: weather** | **Home: farm risk and shortcuts** |
+|---|---|---|
+| <img src="docs/images/farmer-home-quote.jpg" width="240" alt="Farmer Home with a rotating Kannada quote over the seedling photo, a Get started card and the Ask button"> | <img src="docs/images/farmer-home-weather.jpg" width="240" alt="Home weather card: 23 degrees overcast, rain chance by hour and a three-day Open-Meteo forecast labelled Estimate"> | <img src="docs/images/farmer-home-farm-risk.jpg" width="240" alt="Home with farm risk Low (33), supply requests, next reminders and buttons for Check crop health and Ask assistant"> |
+| One of 100 Kannada quotes. Before a farm exists, Home shows "Get started". | Open-Meteo forecast for a farm with coordinates, labelled as a model estimate, not a measurement. | Farm risk is built from the latest prediction of each crop cycle. |
+
+| **Emulator Home** |
+|---|
+| <img src="docs/images/app-farmer-home.png" width="240" alt="Farmer Home on the emulator with a Kannada quote over the seedling photo"> |
+| The same screen on the emulator set. |
+
+<details>
+<summary><b>First-run guide (11 screens)</b>: shown once after sign-in, reopened from Account → Help &amp; guide</summary>
+
+| 1 Welcome | 2 Farm and plots | 3 Crops | 4 Weather |
+|---|---|---|---|
+| <img src="docs/images/guide-01-welcome.jpg" width="180" alt="Guide 1 of 11: Welcome to Harvestique"> | <img src="docs/images/guide-02-farm-and-plots.jpg" width="180" alt="Guide 2 of 11: Your farm and plots"> | <img src="docs/images/guide-03-crops.jpg" width="180" alt="Guide 3 of 11: Your crops"> | <img src="docs/images/guide-04-weather.jpg" width="180" alt="Guide 4 of 11: Weather"> |
+
+| 5 Income planner | 6 Expenses | 7 Observations and crop health | 8 Harvest |
+|---|---|---|---|
+| <img src="docs/images/guide-05-income-planner.jpg" width="180" alt="Guide 5 of 11: Income planner"> | <img src="docs/images/guide-06-expenses.jpg" width="180" alt="Guide 6 of 11: Expenses"> | <img src="docs/images/guide-07-observations-crop-health.jpg" width="180" alt="Guide 7 of 11: Observations and crop health"> | <img src="docs/images/guide-08-harvest.jpg" width="180" alt="Guide 8 of 11: Harvest"> |
+
+| 9 Reminders | 10 Orders | 11 Ask Harvestique |
+|---|---|---|
+| <img src="docs/images/guide-09-reminders.jpg" width="180" alt="Guide 9 of 11: Reminders"> | <img src="docs/images/guide-10-orders.jpg" width="180" alt="Guide 10 of 11: Orders"> | <img src="docs/images/guide-11-ask-harvestique.jpg" width="180" alt="Guide 11 of 11: Ask Harvestique by voice in English or Kannada"> |
+
+</details>
+
+### Farm, plots and crops
+
+| **My Farm** | **Farm: weather and risk** | **Farm: plots and crops** |
+|---|---|---|
+| <img src="docs/images/my-farm.jpg" width="240" alt="My Farm list with farm f1, 1 acre, Mysore, Add farm button and Income plans entry"> | <img src="docs/images/farm-weather-and-risk.jpg" width="240" alt="Farm detail with a stale five-day weather forecast after Open-Meteo returned HTTP 429, and the risk breakdown with most categories not assessed"> | <img src="docs/images/farm-plots-and-crops.jpg" width="240" alt="Farm detail with plot p1 (1 acre, drip) growing Tomato, plus Expenses and Field work log entries"> |
+| Farms, archived farms and the entry to Income plans (the plan screens themselves are not pictured). | The forecast is marked stale when Open-Meteo is rate-limited. Risk categories without data say "not assessed". | Plots, crop cycles, expenses and field work for one farm. |
+
+| **Crop catalogue** | **Add plot** | **Add expense** | **Add field work** |
+|---|---|---|---|
+| <img src="docs/images/crop-catalogue.jpg" width="180" alt="Add crop screen: searchable catalogue, All (213), Vegetables (53), Fruits (47), with Kannada names where available"> | <img src="docs/images/add-plot.jpg" width="180" alt="Add plot dialog: plot name, area in acres and irrigation type"> | <img src="docs/images/add-expense.jpg" width="180" alt="Add expense form: category chips, amount in rupees, date, optional crop and note"> | <img src="docs/images/add-field-work.jpg" width="180" alt="Add field work form: work type chips such as sowing, irrigation and weeding, date, optional crop and note"> |
+| 213 crops in English, with Kannada names where available. | Area and irrigation per plot. | Costs per farm or crop. | Work log per farm or crop. |
+
+### Predicted supply and the farmer's market
+
+| **Harvest: predicted vs promisable** | **Supply request from a buyer pool** | **Accepted order** |
+|---|---|---|
+| <img src="docs/images/farmer-harvest-inventory.jpg" width="240" alt="Harvest tab for Tomato: predicted harvest 2,530 kg (estimate), can promise 1,123.4 kg (p10), 40 kg committed and confirmed, 1,083.4 kg still available, Offer to buyers switched on, grade A"> | <img src="docs/images/farmer-supply-request.jpg" width="240" alt="Farmer Market with a request for 40 kg of tomato from a wholesaler, delivery window and grade A or better, with Decline and Accept buttons"> | <img src="docs/images/farmer-market-accepted-order.jpg" width="240" alt="Farmer Market showing the accepted 40 kg tomato order marked Ready, and a buyer demand that is already pooled"> |
+| Only the pessimistic p10 prediction can be promised. The farmer opts the lot in and sets its expected grade. | A pool reserved part of this lot. The farmer must accept or decline. | After accepting, the farmer marks progress (here "Ready"). |
+
+### Buyer: market, demands, orders, traceability
+
+| **Market** (emulator) | **Market: future supply** | **My demands** | **New demand** |
+|---|---|---|---|
+| <img src="docs/images/app-buyer-market.png" width="180" alt="Buyer Market on the emulator with the Search future harvests button and no supply on offer"> | <img src="docs/images/buyer-market-future-supply.jpg" width="180" alt="Buyer Market showing 3,746.4 kg of tomato from 4 farm lots, harvest window December to March, labelled Estimate"> | <img src="docs/images/buyer-demands.jpg" width="180" alt="My demands: tomato 100 kg, grade A, awaiting farmer confirmation"> | <img src="docs/images/buyer-new-demand.jpg" width="180" alt="New demand dialog: crop, quantity in kilograms, minimum grade and delivery window"> |
+| No supply on offer yet. | Uncommitted p10 supply across farms. No prices are shown. | The demand's stage. | Crop, kg, minimum grade, window. |
+
+| **Orders** | **Order detail** | **Order: one item per farm** | **Traceability** |
+|---|---|---|---|
+| <img src="docs/images/buyer-orders.jpg" width="180" alt="Buyer Orders: order for 100 kg of tomato, 40 kg confirmed, 60 kg waiting, 0 kg delivered"> | <img src="docs/images/buyer-order-detail.jpg" width="180" alt="Order detail: 100 kg ordered, 40 kg confirmed by farmers (estimate), 60 kg waiting, 0 kg delivered and quality-accepted (measured)"> | <img src="docs/images/buyer-order-farms.jpg" width="180" alt="Order detail listing four farm items, one accepted and marked Ready, three pending"> | <img src="docs/images/buyer-traceability.jpg" width="180" alt="Traceability: order to pool to farm allocation to harvest to collection batch to quality to fulfilment, with zero pool reallocations"> |
+| Confirmed, waiting and delivered kg. | Estimates and measured kg are labelled separately. | The pool spread the order across four farms. | Order → pool → allocation → harvest → batch → quality → fulfilment. |
+
+### Crop-health photo check
+
+> **Deployment branch only:** the A/B/C result card. The analysed photos were product images from a web image
+> search, opened from Gallery, and analysed by `gemma4:31b` on Ollama Cloud. Texts are in Kannada because the
+> account's language was Kannada. The score is a visual estimate, not a diagnosis.
+
+| **Start** | **Tomato: Category A** | **Mango: Category B** | **Damaged tomato: Category C** |
+|---|---|---|---|
+| <img src="docs/images/crop-health-check.jpg" width="180" alt="Crop health check screen with Camera and Gallery buttons"> | <img src="docs/images/crop-health-tomato-category-a.jpg" width="180" alt="Photo check result in Kannada: tomato, vegetables, Category A, health score 100 percent, AI confidence high"> | <img src="docs/images/crop-health-mango-category-b.jpg" width="180" alt="Photo check result in Kannada: mango, fruits, Category B, health score 45 percent, signs such as brown and black spots"> | <img src="docs/images/crop-health-tomato-category-c.jpg" width="180" alt="Photo check result in Kannada: tomato, Category C, health score 30 percent, signs such as cracking and sunken spots"> |
+| Camera or Gallery. | A smooth, unblemished tomato. | A speckled mango. | A cracked, damaged tomato. |
+
+| **Groundnut leaf** (emulator) | **Not a crop** (emulator) |
 |---|---|
-| ![Crop health result: Groundnut, Oilseeds, Category B, health score 60 percent, AI confidence high](docs/images/app-crop-health-result.png) | ![Crop health result: Unable to classify, the photo does not show a crop plant](docs/images/app-crop-health-unable.png) |
+| <img src="docs/images/app-crop-health-result.png" width="240" alt="Crop health result: Groundnut, Oilseeds, Category B, health score 60 percent, AI confidence high"> | <img src="docs/images/app-crop-health-unable.png" width="240" alt="Crop health result: Unable to classify, the photo does not show a crop plant"> |
+| A public groundnut leaf-spot photo, commit `c9eb9bb`. | The emulator's virtual camera scene: no guess is given. |
 
-The crop-health screenshots come from commit `c9eb9bb` on the deployment branch. The photo was analysed by
-`gemma4:31b` on Ollama Cloud: a public groundnut leaf-spot photo from Gallery, and the emulator's virtual camera
-scene.
+### Assistant and voice
 
-**No screenshot yet** of crop management, the harvest prediction card, income plans, buyer demands and pools, or
-the voice assistant.
+| **Kannada: my farms** | **Reminder: confirm** | **Reminder: added** |
+|---|---|---|
+| <img src="docs/images/assistant-kannada-farms.jpg" width="240" alt="Assistant in Kannada answering how many farms: 1 farm, 1 plot of 1 acre, growing tomato, labelled Measured"> | <img src="docs/images/assistant-reminder-confirm.jpg" width="240" alt="Assistant in English asking to confirm a reminder to irrigate on 2026-10-26 at 06:00 with Confirm and Cancel buttons"> | <img src="docs/images/assistant-reminder-added.jpg" width="240" alt="Assistant confirming the irrigation reminder was added for 2026-10-26 06:00"> |
+| The answer comes from the farmer's own records. | Writes need confirmation. The reminder title "irrigate a.m" shows the parser's literal reading. | Added only after Confirm. |
+
+| **Kannada: weather tomorrow** | **Kannada: this month's expenses** |
+|---|---|
+| <img src="docs/images/assistant-kannada-weather.jpg" width="240" alt="Assistant in Kannada giving tomorrow's forecast for farm f1: 20.7 to 28 degrees and about 7.2 mm rain, noting the forecast is old and may change"> | <img src="docs/images/assistant-kannada-expenses.jpg" width="240" alt="Assistant in Kannada reporting 5000 rupees of expenses this month, all labour, labelled Measured"> |
+| It says when the stored forecast is old. | From the farmer's expense records. |
+
+The EN / ಕನ್ನಡ switch sets the language. Hold the microphone to speak, or type.
+
+### Reminders and account
+
+| **Reminders** | **Account menu** |
+|---|---|
+| <img src="docs/images/farmer-reminders.jpg" width="240" alt="Reminders: New reminder and Calendar buttons, a suggestion to check the tomato crop, and the pending irrigation reminder"> | <img src="docs/images/account-menu.jpg" width="240" alt="Account menu: assistant language English or Kannada, Help and guide, Change password, Server status, Sign out"> |
+| Suggestions come from the farmer's records. | **Change password** is deployment branch only. |
+
+### Admin
+
+> The bottom bar's **Testers** tab (approving new accounts) is **deployment branch only**. It is not pictured
+> because it lists full mobile numbers. `main` has Dashboard, Orders, Quality and Hubs.
+
+| **Dashboard** | **Dashboard: collection and accuracy** | **Orders** |
+|---|---|---|
+| <img src="docs/images/admin-dashboard.jpg" width="240" alt="Admin dashboard: user counts by role, farms, active crop cycles, supply on offer 3,746.4 kg (estimate), lots by status"> | <img src="docs/images/admin-dashboard-quality.jpg" width="240" alt="Admin dashboard: orders, reallocations in 30 days, collection and quality in measured kg, and prediction accuracy with 5 prediction versions scored"> | <img src="docs/images/admin-orders.jpg" width="240" alt="Admin Orders: a placed tomato order and a cancelled browntop millet order that was 50 kg short"> |
+| Counts across all users (test data). | Accuracy is measured only from recorded harvests. | All orders and their coverage. |
+
+| **Order: receive batch** | **Cancelled order** | **Traceability: cancelled item** | **Hubs** |
+|---|---|---|---|
+| <img src="docs/images/admin-order-receive-batch.jpg" width="180" alt="Admin order detail: a farm item that the farmer accepted and marked Ready shows a Receive batch button"> | <img src="docs/images/admin-cancelled-order.jpg" width="180" alt="Cancelled browntop millet order: 50 kg ordered, 0 confirmed, 50 kg shortage, the farmer withdrew"> | <img src="docs/images/admin-traceability-cancelled.jpg" width="180" alt="Traceability of the cancelled order: allocation 50 kg with 2 ledger entries, participation withdrawn, prediction range, harvest and fulfilment pending"> | <img src="docs/images/admin-hubs.jpg" width="180" alt="Hubs screen with Add collection hub and one active hub in Mysore"> |
+| A batch can be received only for an accepted item. | The shortage is shown, not hidden. | Every change is in the ledger. | Collection hubs. |
+
+**Not pictured yet:**
+* Income-plan screens.
+* The crop screen with its prediction card.
+* The buyer's pool screen.
+* A hub quality check.
+* The notification feed.
 
 ## 3. Architecture
 
@@ -366,7 +498,7 @@ See its [render.yaml](https://github.com/Srinivasabl11/harvestique/blob/deploy/f
 | Features, endpoints, algorithms, model names and limits described for `main` | **Verified against `main`** (source, `.env.example`, `docker-compose.yml`, generated [docs/API.md](docs/API.md)) on 2026-10-25 |
 | Backend suite 1,834 passed; 969 unit tests and 212 Flutter tests passed | **Test runs on the deployment branch** (commit `c9eb9bb`), 2026-10-16; not re-run on `main` |
 | Hosted production API ready; a crop-health check stored with `gemma4:31b` | **Verified on the deployment branch's production setup**, 2026-10-16 and 2026-10-18; not applicable to `main` |
-| Screenshots above | **App runs of the deployment branch**, 2026-10-16 (emulator, test data) |
+| Screenshots above | **App runs of the deployment branch**: emulator 2026-10-16, Android phone mostly 2026-10-25 (test data); the sign-in code screen is from an earlier build matching `main` |
 | Photo-check and assistant accuracy numbers | **Previously reported** in the linked evaluation reports; not re-run |
 | Real-world harvest prediction accuracy, income or yield improvements | **Not measured.** No farm has recorded enough harvests in this system. [docs/EVALUATION.md](docs/EVALUATION.md) has a **simulated** calibration study and a simulated pooling experiment only |
 | Harvest-pooling algorithm superiority | **Not claimed:** in simulation the LP did not beat greedy reallocation, so greedy is the default |
