@@ -1,5 +1,11 @@
 # Crop health result and produce quality grade (2026-10-15)
 
+> **Branch note:** the features in this document are on the
+> [`deploy/free-tier-production`](https://github.com/Srinivasabl11/harvestique/tree/deploy/free-tier-production)
+> branch and are **not on `main` yet**. The files named below (for example `app/domain/crop_health_decision.py`,
+> `app/domain/produce_grading.py` and migration 0018) exist only on that branch. The crop-health check on `main` is
+> described in the [README](../README.md#crop-health-photo-check-on-main).
+
 Two separate features. **Crop health** looks at a growing plant's leaves. **Produce grade** rates harvested produce
 for sale. A healthy crop can give grade C produce (picked late, bruised) and the reverse, so neither feeds the other.
 

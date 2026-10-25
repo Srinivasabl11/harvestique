@@ -9,10 +9,21 @@ to other farms. Delivery is counted only after a measured harvest, a hub quality
 It is a final-year engineering research project. Its research core is **Dynamic Predictive Harvest Pooling**:
 [docs/HARVEST_POOL.md](docs/HARVEST_POOL.md), [docs/ALGORITHMS.md](docs/ALGORITHMS.md).
 
-> **Status, 2026-10-18.** The backend runs on Render (free plan) with a Neon PostgreSQL database. The Android app
-> (release 0.6.1) is installed on one test phone. Harvest predictions are **rule-based estimates, not a trained
-> model**, and no real-world prediction accuracy has been measured yet (see
-> [Evidence and verification](#14-evidence-and-verification)). AI outputs are advisory.
+> **Which branch is this?** This README describes **`main`**, the project as published on 2026-10-15. Newer work,
+> including the hosted production setup, is on the
+> [`deploy/free-tier-production`](https://github.com/Srinivasabl11/harvestique/tree/deploy/free-tier-production)
+> branch and is **not on `main` yet**:
+> * password-only sign-in with admin approval;
+> * the farmer's A/B/C produce grade;
+> * the upgraded crop-health result (item identification and an A/B/C health category);
+> * the cloud deployment files ([render.yaml](https://github.com/Srinivasabl11/harvestique/blob/deploy/free-tier-production/render.yaml),
+>   [docs/DEPLOYMENT.md](https://github.com/Srinivasabl11/harvestique/blob/deploy/free-tier-production/docs/DEPLOYMENT.md));
+> * the seedling branding.
+>
+> Sections below mark these as **deployment branch only**.
+>
+> Harvest predictions are **rule-based estimates, not a trained model**. No real-world prediction accuracy has been
+> measured yet (see [Evidence and verification](#14-evidence-and-verification)). AI outputs are advisory.
 
 ## Contents
 1. [Features and their status](#1-features-and-their-status)
@@ -27,7 +38,7 @@ It is a final-year engineering research project. Its research core is **Dynamic 
 10. [Languages and voice](#10-languages-and-voice)
 11. [Accounts and security](#11-accounts-and-security)
 12. [Run it locally](#12-run-it-locally)
-13. [Production deployment](#13-production-deployment)
+13. [Deployment](#13-deployment)
 14. [Evidence and verification](#14-evidence-and-verification)
 15. [Limitations and proposed enhancements](#15-limitations-and-proposed-enhancements)
 16. [Documentation index](#16-documentation-index)
@@ -35,9 +46,9 @@ It is a final-year engineering research project. Its research core is **Dynamic 
 ## 1. Features and their status
 
 "App" means a screen in the Flutter Android app. "API" means a backend endpoint (all under `/api/v1`). The full,
-generated endpoint list is [docs/API.md](docs/API.md) (143 operations).
+generated endpoint list for `main` is [docs/API.md](docs/API.md) (142 operations).
 
-| Area | What exists | Where |
+| Area | What exists on `main` | Where |
 |---|---|---|
 | Farms, plots, crop cycles | Create and edit farms, plots and crop cycles. Plot land capacity is enforced over time. Expenses, field work and observations can be recorded. | App + API |
 | Crop catalogue | 213 standard crops in 18 groups (86 with a Kannada name); admins can add more | API (seeded); app pickers |
@@ -48,12 +59,13 @@ generated endpoint list is [docs/API.md](docs/API.md) (143 operations).
 | Buyer demand and matching | Demands, ranked matches with reasons, search of future supply | App (buyer) + API |
 | Harvest pooling and reallocation | A pool reserves supply across farms. When predictions drop or a farmer declines, shortages are detected and replaced. Every change is in an event log and ledger. | App (buyer pool screen) + API |
 | Orders, collection, fulfilment | Order on a pool; farmers accept or decline; hub batches, quality checks, fulfilment and traceability | App (buyer, farmer, admin screens) + API |
-| Produce quality grade (A/B/C) | Farmer's grade of a recorded harvest from a checklist, optionally with an AI photo suggestion; the hub's measured check decides acceptance | App + API |
-| Crop health photo check | AI vision analysis of one photo: item, parent category, health score, category A/B/C or "Unable to classify" | App + API |
+| Crop health photo check | Advisory analysis of one photo by a local vision model: a most-likely category with category bars, the signs seen and a 0-10 visual condition score; colour measurements only when no model is configured | App + API |
+| Farmer's produce grade (A/B/C) | **Deployment branch only.** On `main` the grade is the lot's expected grade set by the farmer, and the hub's measured quality check. | - |
 | Farm assistant | Questions answered from the farmer's own records by fixed tools; voice in English and Kannada | App + API |
 | Reminders, notifications, calendar | Reminders and an in-app notification feed (no push notifications) | App + API |
 | Weather | Open-Meteo forecast and history for farms that have coordinates | App + API |
-| Mandi prices | data.gov.in adapter | Off by default and in production (needs a key) |
+| Mandi prices | data.gov.in adapter | Off by default (needs a key) |
+| Hosted deployment (Render, Neon, Ollama Cloud) | **Deployment branch only.** `main` runs with Docker Compose. | - |
 | Payments, contracts, prices on orders | **Not implemented.** Orders carry quantities only. | - |
 
 ## 2. Screenshots
@@ -61,6 +73,10 @@ generated endpoint list is [docs/API.md](docs/API.md) (143 operations).
 These are genuine screenshots of the Android app (debug build on the Android emulator, 2026-10-16). It was signed in
 with test accounts on a throwaway local server. The images are resized but not edited. The test farmer had no farm
 yet, so Home shows "Get started", and the buyer Market had no supply on offer.
+
+> These screenshots come from the **`deploy/free-tier-production`** branch. On `main` the screens have the same
+> layout but show the earlier Karnataka-flag artwork instead of the seedling photo. The crop-health card on `main`
+> shows "Most likely: <category>" with category bars, not the A/B/C card shown here.
 
 | Sign-in | Farmer Home | Buyer Market |
 |---|---|---|
@@ -70,44 +86,46 @@ yet, so Home shows "Get started", and the buyer Market had no supply on offer.
 |---|---|
 | ![Crop health result: Groundnut, Oilseeds, Category B, health score 60 percent, AI confidence high](docs/images/app-crop-health-result.png) | ![Crop health result: Unable to classify, the photo does not show a crop plant](docs/images/app-crop-health-unable.png) |
 
-The crop-health screenshots come from the current code (commit `c9eb9bb`). The photo was analysed by `gemma4:31b` on
-Ollama Cloud: a public groundnut leaf-spot photo from Gallery, and the emulator's virtual camera scene.
+The crop-health screenshots come from commit `c9eb9bb` on the deployment branch. The photo was analysed by
+`gemma4:31b` on Ollama Cloud: a public groundnut leaf-spot photo from Gallery, and the emulator's virtual camera
+scene.
 
 **No screenshot yet** of crop management, the harvest prediction card, income plans, buyer demands and pools, or
-the voice assistant. These screens exist, but they were not captured in a run that could be shown safely here.
+the voice assistant.
 
 ## 3. Architecture
 
 ```mermaid
 flowchart LR
-    subgraph Phone["Android phone"]
+    subgraph Phone["Android phone or emulator"]
         App["Flutter app<br/>Riverpod, go_router, Dio"]
         Speech["On-device speech<br/>speech_to_text, flutter_tts<br/>en-IN / kn-IN"]
     end
-    subgraph Render["Render web service (Docker)"]
+    subgraph PC["Docker Compose on the PC"]
         API["FastAPI /api/v1<br/>domain rules, services"]
+        DB[("PostgreSQL 16")]
     end
-    DB[("PostgreSQL<br/>Neon in production")]
-    Ollama["Ollama API<br/>Ollama Cloud in production<br/>local Ollama in development"]
+    Ollama["Ollama<br/>local, optional"]
     Meteo["Open-Meteo<br/>weather"]
-    App -- "HTTPS + JWT" --> API
+    SMS["SMS codes<br/>dev console or phone gateway"]
+    App -- "HTTP + JWT" --> API
     Speech --- App
     API -- "SQLAlchemy" --> DB
     API -- "assistant and photo models" --> Ollama
     API -- "forecast and history" --> Meteo
+    API -- "sign-in codes" --> SMS
 ```
 
-| Part | Stack (verified in this repository) |
+| Part | Stack on `main` (verified in this repository) |
 |---|---|
 | Mobile app | Flutter / Dart for Android: `flutter_riverpod`, `go_router`, `dio`, `flutter_secure_storage`, `shared_preferences` (offline cache), `speech_to_text`, `flutter_tts`, `image_picker` |
-| Backend | Python 3.12, FastAPI, Pydantic, SQLAlchemy 2.0, Alembic (18 migrations), PostgreSQL. Business rules are pure Python in `backend/app/domain/`; SciPy (HiGHS) only for the optional LP pool allocator |
-| AI | Ollama-compatible HTTP API. Development: local Ollama (`llama3.2:3b` assistant; photo check off by default). Production: Ollama Cloud `gemma4:31b` for both |
-| Hosting | Render free web service (Singapore), Neon PostgreSQL 18 (Singapore), [render.yaml](render.yaml) |
+| Backend | Python 3.12, FastAPI, Pydantic, SQLAlchemy 2.0, Alembic (15 migrations), PostgreSQL. Business rules are pure Python in `backend/app/domain/`; SciPy (HiGHS) only for the optional LP pool allocator |
+| AI | A **local** Ollama server only (`.env.example`: `llama3.2:3b` for the assistant; the photo check is off by default and uses `gemma3:4b` when enabled). There is no setting for a hosted Ollama key on `main` |
 | Local development | Docker Compose ([docker-compose.yml](docker-compose.yml)): PostgreSQL, backend, optional Ollama (`--profile ai`) |
 
-The app also contains the **admin** screens: Dashboard, Orders, Quality, Hubs and Testers. On an order's detail
-screen (opened from Orders) an admin receives batches and fulfils items; quality checks are recorded on the Quality
-tab. A user's role decides which screens they see.
+The app also contains the **admin** screens: Dashboard, Orders, Quality and Hubs. On an order's detail screen
+(opened from Orders) an admin receives batches and fulfils items; quality checks are recorded on the Quality tab.
+A user's role decides which screens they see.
 
 ## 4. Predicted harvest vs available produce
 
@@ -212,13 +230,13 @@ Details and constants: [docs/ALGORITHMS.md](docs/ALGORITHMS.md) sections 3-7.
 
 ### What runs where
 
-| Question | Answer (verified in code and configuration) |
+| Question | Answer on `main` (verified in code and configuration) |
 |---|---|
 | Does Harvestique train models? | **No.** There is no training code or ML library in the backend dependencies. |
-| What models are used? | Production (`render.yaml`): `gemma4:31b` for the assistant and the photo checks. Development defaults (`.env.example`): `llama3.2:3b` for the assistant; the photo check is off (colour measurements only) unless `CROP_HEALTH_CLASSIFIER=ollama_vision` with `gemma3:4b`. |
-| Where do they run? | Inference only, through the Ollama HTTP API: **Ollama Cloud** in production (`OLLAMA_BASE_URL=https://ollama.com` with an API key), a **local Ollama** on the PC in development. |
-| What is AI-generated? | Assistant wording for general questions; tool choice when the keyword rules fail; the model's description and visible-sign ratings of a photo. |
-| What is deterministic? | Predictions, risk, inventory, matching, pooling, reallocation, planning, the health score and A/B/C bands, produce grade rules, and the assistant's answers about the farmer's own data. |
+| What models are used? | `.env.example`: `llama3.2:3b` for the assistant. The photo check is off (colour measurements only) unless `CROP_HEALTH_CLASSIFIER=ollama_vision`, which uses `gemma3:4b`. |
+| Where do they run? | Inference only, on a **local** Ollama server through its HTTP API. (Ollama Cloud with `gemma4:31b` is used by the deployment branch.) |
+| What is AI-generated? | Assistant wording for general questions; tool choice when the keyword rules fail; the model's description, signs and category for a photo. |
+| What is deterministic? | Predictions, risk, inventory, matching, pooling, reallocation, planning, the photo's 0-10 condition score, and the assistant's answers about the farmer's own data. |
 
 ### Farm assistant (`backend/app/services/assistant.py`, `backend/app/domain/assistant/`)
 * Questions are routed by keyword rules to fixed tools: weather, predictions, farm risk, reminders, inventory, buyer
@@ -230,37 +248,30 @@ Details and constants: [docs/ALGORITHMS.md](docs/ALGORITHMS.md) sections 3-7.
 * Writes (for example recording an expense) need the farmer's confirmation. Allocation requests are always refused:
   only the pool engine allocates.
 
-### Crop health photo check
+### Crop health photo check on `main`
 
 ```mermaid
 flowchart TD
     U["Photo from Camera or Gallery<br/>JPEG / PNG / WebP, max 5 MB"] --> V["Validate and decode<br/>type check, pixel limit, resize to 768 px"]
     V --> W{"Too dark or blurred?"}
-    W -- "yes" --> X["Retake: no model call"]
-    W -- "no" --> Y["Ollama chat: system prompt, JSON schema,<br/>image; temperature 0.1"]
-    Y --> Z["Read JSON<br/>bare or fenced"]
-    Z --> AA["Validate every field<br/>drop treatment sentences"]
-    Y -. "timeout, unreachable, busy,<br/>invalid answer" .-> AB["Photo check unavailable<br/>no health claim"]
-    AA --> AC["Identify the item<br/>against the crop catalogue"]
-    AC --> AD["Decision: Healthy, Needs attention,<br/>Clearer photo needed"]
-    AD --> AE["Health score 0-100 % from visible signs"]
-    AE --> AF["Category A / B / C<br/>or Unable to classify"]
+    W -- "yes" --> X["Unclear: no model call"]
+    W -- "no" --> Y["Local Ollama chat: system prompt,<br/>JSON schema, image; temperature 0.1"]
+    Y --> Z["Parse the answer as JSON<br/>and validate every field"]
+    Y -. "timeout, unreachable,<br/>invalid answer" .-> AB["Colour measurements only<br/>no health label"]
+    Z --> AD["Category: healthy, possible disease,<br/>stress, possible deficiency or unknown"]
+    AD --> AE["Report: signs seen, possible explanations,<br/>0-10 visual condition score, limits, next steps"]
 ```
 
-* **Item:** the model's crop guess is matched against the catalogue's names, Kannada names and aliases, giving the
-  item and its parent category (Vegetables, Fruits and nuts, Cereals and grains, and so on). An unrecognised guess,
-  an ambiguous one, or a photo with several kinds of crop gives "Unable to classify". If the check is started from a
-  crop cycle, that crop is the item.
-* **Health score:** how healthy the plant or produce **looks** in this photo, from the visible signs and their
-  extent (100 % = no visible damage). It is not the model's confidence, which is reported separately.
-* **Category:** A above 66.66 % (very good), B above 33.33 % up to 66.66 % (good), C 0 to 33.33 % (moderate).
-  Scores are clamped to 0-100 and every score falls in exactly one band. Without enough evidence the result is
-  "Unable to classify".
-* **Safety:** never a diagnosis. Next steps never name a product, chemical or dose, and spraying is referred to an
-  agriculture officer. If the model fails, the app says so instead of showing a result.
+* **Result:** a most-likely category with category bars (labelled an AI estimate, not a measured probability), the
+  signs the model described, and a structured report with a 0-10 visual condition score when the photo gives enough
+  evidence.
+* **Safety:** never a diagnosis. Sentences about sprays, chemicals or doses are removed, and spraying is referred to
+  an agriculture officer.
 * **Privacy:** the photo itself is not stored. Only its SHA-256 and the result are kept.
-
-Design note and rules: [docs/CROP_HEALTH_AND_GRADING.md](docs/CROP_HEALTH_AND_GRADING.md).
+* **Deployment branch only:** the farmer-facing decision (Healthy, Needs attention, Clearer photo needed,
+  Unavailable), item identification against the catalogue, the 0-100 % health score with A/B/C categories, and
+  tolerant reading of fenced JSON answers. That last part is needed for Ollama Cloud. See
+  [docs/CROP_HEALTH_AND_GRADING.md](docs/CROP_HEALTH_AND_GRADING.md).
 
 ### Measured results (local `gemma3:4b`, from the project's evaluation reports, not re-run here)
 
@@ -268,33 +279,30 @@ Design note and rules: [docs/CROP_HEALTH_AND_GRADING.md](docs/CROP_HEALTH_AND_GR
 |---|---|---|
 | PlantDoc web photos (108) | macro F1 0.82; healthy-leaf recall 0.59 | [docs/CROP_HEALTH_EVAL_2026-10-14.md](docs/CROP_HEALTH_EVAL_2026-10-14.md) |
 | Koppal groundnut field photos (20) | macro F1 0.334: healthy leaves were called diseased | [docs/KOPPAL_GROUNDNUT_EVAL_2026-10-14.md](docs/KOPPAL_GROUNDNUT_EVAL_2026-10-14.md) |
-| Reserved held-out set (74) | macro F1 0.779; 14 of 33 healthy leaves shown "Needs attention" | [docs/CROP_HEALTH_AND_GRADING.md](docs/CROP_HEALTH_AND_GRADING.md) |
+| Reserved held-out set (74) | macro F1 0.779 | [docs/CROP_HEALTH_AND_GRADING.md](docs/CROP_HEALTH_AND_GRADING.md) |
 | Assistant, 26 Kannada/English questions | 25/26 correct after the glossary (was 14/26) | [docs/ASSISTANT_EVAL_2026-10-14.md](docs/ASSISTANT_EVAL_2026-10-14.md) |
 
-The production model `gemma4:31b` has **not** been evaluated on labelled photos. These are small samples. The photo
-check is a visual estimate that an agriculture officer should confirm, and the 0-100 % score and A/B/C bands are a
-documented rubric that has not been validated against expert severity ratings.
+These are small samples. The photo check is a visual estimate that an agriculture officer should confirm. The
+condition score is a documented rubric that has not been validated against expert severity ratings.
 
 ## 9. Quality grading
 
-There are two separate grades:
+On `main` there are two grades, both A/B/C:
 
-* **Farmer's produce grade (A/B/C)** of a recorded harvest (`backend/app/domain/produce_grading.py`). The farmer rates
-  every check: size, ripeness or colour, damage and freshness for fresh produce; size, colour, damage, cleanliness
-  and dryness for grain and dried produce. The grade is the worst level. An AI photo suggestion is optional, never
-  final, and never rates dryness. The farmer may lower the grade with a reason, never raise it. The confirmed grade
-  becomes the lot's grade for buyers. Endpoints: `GET`/`PUT /crop-cycles/{cycle_id}/grading`,
-  `POST /crop-cycles/{cycle_id}/grading/photo`.
-* **Hub quality check:** the measured grade and accepted/rejected kilograms of a received batch. It decides
-  acceptance against the buyer's minimum grade.
+* **Expected grade of a lot:** set by the farmer when offering the lot (`PATCH /inventory/lots/{lot_id}`). Matching
+  uses it against the buyer's minimum grade.
+* **Hub quality check:** the measured grade and accepted/rejected kilograms of a received batch. It decides acceptance
+  against the buyer's minimum grade (`POST /admin/batches/{batch_id}/quality`).
 
-Neither is an official AGMARK or BIS grade.
+The farmer's evidence-based produce grade (checklist plus optional AI photo suggestion) is **deployment branch
+only** ([docs/CROP_HEALTH_AND_GRADING.md](docs/CROP_HEALTH_AND_GRADING.md)). Neither grade is an official AGMARK or
+BIS grade.
 
 ## 10. Languages and voice
 
 * **App screens are in English.** There are no Flutter localization files.
 * **Kannada** appears where the server writes the text in the user's language: assistant answers, crop-health
-  results, grading checks, plus the 100 Kannada quotes on Home. The language is the user's profile setting (`en`/`kn`).
+  reports, plus the 100 Kannada quotes on Home. The language is the farmer's profile setting (`en`/`kn`).
 * **Voice:** speech recognition and text-to-speech run on the phone (`en-IN`, `kn-IN`). The transcript goes to
   `POST /voice/intent`, the same assistant as chat. Offline use needs the language packs on the phone. Server-side
   speech endpoints answer 503 by design.
@@ -303,14 +311,16 @@ Neither is an official AGMARK or BIS grade.
 ## 11. Accounts and security
 
 * **Roles:** farmer, buyer, admin. Admins are created only from the command line (`app.cli.create_admin`).
-* **Sign-in:** phone number and password (Argon2id). JWT access tokens (15 minutes) with rotating refresh tokens,
-  stored in Android's secure storage. No SMS codes.
-* **Production sign-up:** new accounts wait for an admin's approval. A number is locked after 5 wrong passwords in
-  15 minutes (and after 20 in a day).
+* **Sign-in on `main`:** phone number and password (Argon2id) **plus a one-time code by SMS**, at registration and at
+  every login. A forgotten password is also reset with an SMS code.
+  * `SMS_PROVIDER=dev_console` (the default) writes the codes to the server log for development.
+  * `android_gateway` sends them through an SMS gateway app on a phone.
+* **Sessions:** JWT access tokens (15 minutes) with rotating refresh tokens, stored in Android's secure storage.
+* **Lockout:** a number is locked for 15 minutes after 5 wrong passwords. Code sends and resends are rate-limited.
 * **Access control:** every resource route checks ownership and answers 404 for another user's data.
-* **No browser access:** CORS is closed in production; the client is the Android app.
-* **Diagnostics:** every response carries `X-Request-ID`. Production logs are JSON and contain no tokens, phone
-  numbers or photos.
+* **CORS:** `CORS_ORIGINS` defaults to `*`; set it for any non-development use.
+* **Deployment branch only:** password-only sign-in, admin approval of new testers (Testers screen), request IDs and
+  JSON logs, and a per-person limit on AI photo checks.
 
 ## 12. Run it locally
 
@@ -330,6 +340,8 @@ cd frontend
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api/v1
 ```
 
+* **Sign-in codes:** with the default `SMS_PROVIDER=dev_console`, they appear in the backend log
+  (`docker compose logs backend`).
 * **Without Docker:** [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) covers the backend virtual environment, a physical
   phone on Wi-Fi, local Ollama and migrations.
 * **Demo data:** `python -m app.cli.demo --reset` runs the whole workflow through the real API. It works only on a
@@ -337,49 +349,46 @@ flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api/v1
 * **Tests:** `powershell -ExecutionPolicy Bypass -File scripts\test-backend.ps1` (ruff, mypy, pytest in Docker) and
   `flutter test` in `frontend/`. See [docs/TESTING.md](docs/TESTING.md).
 
-## 13. Production deployment
+## 13. Deployment
 
-[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) covers:
-* the Render Blueprint, the Neon database and the Ollama Cloud key;
-* backups, the admin account and testers;
-* the signed release APK (`scripts/build-release-apk.ps1`) and `scripts/verify-production.ps1`;
-* what works with the development PC switched off.
+`main` contains only the local Docker Compose setup ([docker-compose.yml](docker-compose.yml)).
 
-Free-tier limits apply. Render sleeps after 15 idle minutes, and the first request then waits about a minute (54 s
-measured on 2026-10-18). Neon and Ollama Cloud have monthly quotas. Auto-deploy is off, so deploys are manual.
+The hosted deployment is on the
+[`deploy/free-tier-production`](https://github.com/Srinivasabl11/harvestique/tree/deploy/free-tier-production) branch
+and is **not on `main`**. It uses the Render free plan, Neon PostgreSQL and Ollama Cloud, with a signed release APK.
+See its [render.yaml](https://github.com/Srinivasabl11/harvestique/blob/deploy/free-tier-production/render.yaml) and
+[docs/DEPLOYMENT.md](https://github.com/Srinivasabl11/harvestique/blob/deploy/free-tier-production/docs/DEPLOYMENT.md).
 
 ## 14. Evidence and verification
 
 | Claim | Evidence level |
 |---|---|
-| Features, endpoints, algorithms, model names and limits described above | **Verified in this repository** (source, `render.yaml`, `.env.example`, generated [docs/API.md](docs/API.md)) on 2026-10-18 |
-| Production API ready: database, `llm:ollama` and `vision:ollama-vision` all `ok` | **Verified by a request** on 2026-10-18 (HTTP 200) |
-| Backend suite 1,834 passed; 969 unit tests and 212 Flutter tests passed at commit `c9eb9bb` | **Verified by test runs** on 2026-10-16; not re-run for this documentation change |
-| Crop health works in production (a real check stored with `gemma4:31b`, no error, report v3) | **Verified by a run** on 2026-10-16 (read-only database check) |
-| Screenshots above | **Verified by app runs** on 2026-10-16 (emulator, test data) |
-| Release 0.6.1 (signed, `com.example.harvestique`) installed on one Samsung phone and signed in | **Verified on the device** on 2026-10-16 (`adb`, installed APK hash and certificate checked) |
+| Features, endpoints, algorithms, model names and limits described for `main` | **Verified against `main`** (source, `.env.example`, `docker-compose.yml`, generated [docs/API.md](docs/API.md)) on 2026-10-25 |
+| Backend suite 1,834 passed; 969 unit tests and 212 Flutter tests passed | **Test runs on the deployment branch** (commit `c9eb9bb`), 2026-10-16; not re-run on `main` |
+| Hosted production API ready; a crop-health check stored with `gemma4:31b` | **Verified on the deployment branch's production setup**, 2026-10-16 and 2026-10-18; not applicable to `main` |
+| Screenshots above | **App runs of the deployment branch**, 2026-10-16 (emulator, test data) |
 | Photo-check and assistant accuracy numbers | **Previously reported** in the linked evaluation reports; not re-run |
 | Real-world harvest prediction accuracy, income or yield improvements | **Not measured.** No farm has recorded enough harvests in this system. [docs/EVALUATION.md](docs/EVALUATION.md) has a **simulated** calibration study and a simulated pooling experiment only |
 | Harvest-pooling algorithm superiority | **Not claimed:** in simulation the LP did not beat greedy reallocation, so greedy is the default |
 
 ## 15. Limitations and proposed enhancements
 
-Known limitations:
+Known limitations of `main`:
 * Harvest predictions are rule-based estimates with heuristic confidence until real outcomes accumulate.
-* The photo check over-reports problems on healthy leaves in the local evaluations, and the production model is
-  unevaluated.
+* The photo check over-reports problems on healthy leaves in the local evaluations.
 * The cost & income calculator and land utilization planner are API only.
-* There are no prices, contracts or payments. Mandi prices are off in production.
+* There are no prices, contracts or payments. Mandi prices are off by default.
 * Notifications are in-app only. App screens are English only. 127 catalogue crops have no Kannada name.
-* Production uses free tiers (sleep, quotas) and one server instance.
+* Sign-in needs an SMS code. Without a configured SMS sender, codes are only in the server log.
 
-Proposed enhancements (not implemented):
-* Evaluate `gemma4:31b` on the reserved photo set.
+Proposed enhancements (not implemented on `main`):
+* Merge the deployment branch: password sign-in with admin approval, produce grading, the upgraded crop-health
+  result and the hosted setup.
+* Evaluate the vision model on the reserved photo set.
 * Have Kannada texts reviewed by a native speaker and add the missing Kannada crop names.
 * Expose the calculator and land planner in the app.
 * Add push notifications.
 * Collect real recorded harvests to measure prediction accuracy and enable calibration.
-* Capture the missing screenshots listed in [section 2](#2-screenshots).
 
 ## 16. Documentation index
 
@@ -389,12 +398,11 @@ Proposed enhancements (not implemented):
 | Algorithms | [docs/ALGORITHMS.md](docs/ALGORITHMS.md) |
 | Harvest pooling | [docs/HARVEST_POOL.md](docs/HARVEST_POOL.md) |
 | AI pipeline | [docs/AI_PIPELINE.md](docs/AI_PIPELINE.md) |
-| Crop health and grading | [docs/CROP_HEALTH_AND_GRADING.md](docs/CROP_HEALTH_AND_GRADING.md) |
+| Crop health and grading (deployment branch features) | [docs/CROP_HEALTH_AND_GRADING.md](docs/CROP_HEALTH_AND_GRADING.md) |
 | API (generated) | [docs/API.md](docs/API.md) |
 | Database (generated) | [docs/DATABASE.md](docs/DATABASE.md) |
 | Evaluation | [docs/EVALUATION.md](docs/EVALUATION.md) |
 | Testing | [docs/TESTING.md](docs/TESTING.md) |
 | Development setup | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) |
-| Deployment | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
 | Decisions | [docs/DECISIONS.md](docs/DECISIONS.md) |
 | Progress log | [docs/PROGRESS.md](docs/PROGRESS.md) |
